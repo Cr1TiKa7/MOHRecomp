@@ -17,11 +17,13 @@ Set-Location D:\RecompDev\MOHRecomp
 |---|---|
 | `TEMP` / `TMP` | `D:\RecompDev\Temp`, damit C: frei bleibt |
 | `PSXRECOMP_TOOLCHAIN_DIR` / `RETCOMM_TOOLCHAIN_DIR` | `D:\RecompDev\Toolchain` (cmake-clang-v1 1.0.14) |
-| `RETCOMM_TOOLCHAIN_CACHE` / `RETCOMM_DATA_HOME` / `CCACHE_DIR` | Caches auf D: statt `%LOCALAPPDATA%` |
+| `RETCOMM_TOOLCHAIN_CACHE` / `RETCOMM_DATA_HOME` / `RETCOMM_DATA_DIR` / `CCACHE_DIR` / `PSX_RESIDENT_CACHE` | Caches auf D: statt `%LOCALAPPDATA%` |
 | `PATH` | Toolchain-`bin` und Git-Bash vorangestellt |
 | `MOH_CUE` | Pfad zur Disc (PAL, SLES-02470) |
 
-Im Repo ist `core.autocrlf=false` gesetzt. Sonst bricht Windows PowerShell 5.1 in Framework-Skripten an Gits LF/CRLF-Warnungen ab.
+Die `.gitattributes` erzwingt LF für alle Textdateien, unabhängig von `core.autocrlf`. Ohne sie bricht Windows PowerShell 5.1 in Framework-Skripten an Gits LF/CRLF-Warnungen ab.
+
+Ein Ausnahmefall: Der Mod-Medien-Cache der Runtime (`%LOCALAPPDATA%\psxrecomp\imports`) hat keine Umleitung. Er wird nur von Mods benutzt, die Medien importieren.
 
 ## Code erzeugen und bauen
 

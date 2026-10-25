@@ -3,6 +3,8 @@
 Run from the repo root:  py -3 -m unittest discover -s tests/smoke -v
 """
 
+import contextlib
+import io
 import json
 import os
 import socket
@@ -10,8 +12,10 @@ import struct
 import sys
 import tempfile
 import threading
+import time
 import unittest
 import zlib
+from unittest import mock
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
@@ -224,11 +228,86 @@ class BootSmokeTests(unittest.TestCase):
 
         srv = FakeServer(reply)
         try:
-            later = boot_smoke._check_frames_advance(srv.port)
+            later = boot_smoke._check_frames_advance(srv.port, time.monotonic() + 10)
         finally:
             srv.close()
         self.assertEqual(later["frame"], 150)
         self.assertEqual([r["cmd"] for r in srv.seen], ["frame", "frame"])
+
+    def test_frame_check_retries_until_frame_reported(self):
+        # A cold-starting runtime may answer without a frame counter at first.
+        import boot_smoke
+
+        replies = iter([{"id": 1, "ok": False, "error": "not ready"},
+                        {"id": 1, "ok": True, "frame": 100},
+                        {"id": 1, "ok": True, "frame": 150}])
+        srv = FakeServer(lambda request: next(replies))
+        try:
+            later = boot_smoke._check_frames_advance(srv.port, time.monotonic() + 10)
+        finally:
+            srv.close()
+        self.assertEqual(later["frame"], 150)
+
+    def test_unexpected_error_is_one_line_failure(self):
+        import boot_smoke
+
+        stderr = io.StringIO()
+        with mock.patch.object(boot_smoke.subprocess, "Popen", return_value=_FakeProc(None)), \
+                mock.patch.object(boot_smoke, "_wait_for_ping", side_effect=ValueError("bad json")), \
+                contextlib.redirect_stderr(stderr):
+            rc = boot_smoke.main(["--exe", sys.executable, "--cue", "x.cue",
+                                  "--port", str(_free_port()), "--out", self.tmp.name])
+        self.assertEqual(rc, 1)
+        lines = stderr.getvalue().strip().splitlines()
+        self.assertEqual(len(lines), 1, stderr.getvalue())
+        self.assertIn("ValueError: bad json", lines[0])
+
+    def test_non_ascii_out_dir_rejected(self):
+        import boot_smoke
+
+        stderr = io.StringIO()
+        with mock.patch.object(boot_smoke.subprocess, "Popen") as popen, \
+                contextlib.redirect_stderr(stderr):
+            rc = boot_smoke.main(["--exe", sys.executable, "--cue", "x.cue",
+                                  "--port", str(_free_port()),
+                                  "--out", os.path.join(self.tmp.name, "smöke")])
+        self.assertEqual(rc, 1)
+        self.assertIn("ASCII", stderr.getvalue())
+        popen.assert_not_called()
+
+    def test_relative_paths_made_absolute(self):
+        import boot_smoke
+
+        stderr = io.StringIO()
+        with mock.patch.object(boot_smoke.subprocess, "Popen", return_value=_FakeProc(0)) as popen, \
+                contextlib.redirect_stderr(stderr):
+            boot_smoke.main(["--exe", sys.executable, "--cue", "x.cue",
+                             "--port", str(_free_port()), "--out", self.tmp.name])
+        cmd = popen.call_args.args[0]
+        self.assertTrue(os.path.isabs(cmd[cmd.index("--disc") + 1]), cmd)
+        self.assertTrue(os.path.isabs(cmd[cmd.index("--memcard-dir") + 1]), cmd)
+
+    def setUp(self):
+        self.tmp = tempfile.TemporaryDirectory()
+
+    def tearDown(self):
+        self.tmp.cleanup()
+
+
+class _FakeProc:
+    """Stand-in for subprocess.Popen: poll() returns the given exit code (None = running)."""
+
+    def __init__(self, exit_code):
+        self.returncode = exit_code
+
+    def poll(self):
+        return self.returncode
+
+    def wait(self, timeout=None):
+        return self.returncode
+
+    def kill(self):
+        self.returncode = -9
 
 
 if __name__ == "__main__":

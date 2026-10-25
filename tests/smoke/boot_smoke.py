@@ -14,6 +14,7 @@ import os
 import subprocess
 import sys
 import time
+import zlib
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
@@ -24,6 +25,9 @@ REPO_ROOT = os.path.normpath(os.path.join(os.path.dirname(os.path.abspath(__file
 MIN_COLORS = 16
 POLL_SECS = 0.5
 SHOT_EVERY_SECS = 2.0
+# Errors a cold-starting or busy runtime can produce for a single request;
+# they are retried until the deadline instead of aborting the run.
+TRANSIENT = (ConnectionError, ValueError, KeyError, OSError, IndexError, zlib.error)
 
 
 class SmokeFailure(Exception):
@@ -35,10 +39,14 @@ def _fail(msg):
     return 1
 
 
+def _check_alive(proc):
+    if proc.poll() is not None:
+        raise SmokeFailure(f"runtime exited early with code {proc.returncode}")
+
+
 def _wait_for_ping(proc, port, deadline):
     while time.monotonic() < deadline:
-        if proc.poll() is not None:
-            raise SmokeFailure(f"runtime exited early with code {proc.returncode}")
+        _check_alive(proc)
         try:
             return psxdbg.send("ping", port=port, timeout=2.0)
         except ConnectionError:
@@ -46,31 +54,51 @@ def _wait_for_ping(proc, port, deadline):
     raise SmokeFailure("debug port never answered")
 
 
-def _check_frames_advance(port):
+def _read_frame(port, deadline):
+    last = "no reply"
+    while time.monotonic() < deadline:
+        try:
+            reply = psxdbg.send("frame", port=port)
+            return reply, int(reply["frame"])
+        except TRANSIENT as exc:
+            last = f"{type(exc).__name__}: {exc}"
+            time.sleep(POLL_SECS)
+    raise SmokeFailure(f"frame command never answered ({last})")
+
+
+def _check_frames_advance(port, deadline):
     # "ping" is answered by the server's I/O thread without a frame counter;
     # "frame" goes through the emulation thread and reports emulated frames.
-    first = psxdbg.send("frame", port=port)
+    _, first = _read_frame(port, deadline)
     time.sleep(2.0)
-    second = psxdbg.send("frame", port=port)
-    if second["frame"] <= first["frame"]:
-        raise SmokeFailure(f"frame counter stuck at {first['frame']}")
-    return second
+    reply, second = _read_frame(port, deadline)
+    if second <= first:
+        raise SmokeFailure(f"frame counter stuck at {first}")
+    return reply
 
 
 def _wait_for_real_frame(proc, port, out_dir, deadline):
     n = 0
+    last = "no screenshot taken"
     while time.monotonic() < deadline:
-        if proc.poll() is not None:
-            raise SmokeFailure(f"runtime exited early with code {proc.returncode}")
+        _check_alive(proc)
         shot = os.path.join(out_dir, f"shot-{n:03d}.png").replace("\\", "/")
-        reply = psxdbg.send("screenshot", port=port, path=shot)
-        if reply.get("ok") and os.path.isfile(shot):
-            colors = pngcheck.distinct_colors(shot, limit=MIN_COLORS)
-            if colors >= MIN_COLORS:
-                return shot, reply
+        try:
+            reply = psxdbg.send("screenshot", port=port, path=shot)
+            if not reply.get("ok"):
+                last = f"server error: {reply.get('error', reply)}"
+            elif not os.path.isfile(shot):
+                last = f"server reported ok but {shot} is missing"
+            else:
+                colors = pngcheck.distinct_colors(shot, limit=MIN_COLORS)
+                if colors >= MIN_COLORS:
+                    return shot, reply
+                last = f"{shot} has only {colors} colors"
+        except TRANSIENT as exc:
+            last = f"{type(exc).__name__}: {exc}"
         n += 1
         time.sleep(SHOT_EVERY_SECS)
-    raise SmokeFailure(f"no non-trivial frame (>= {MIN_COLORS} colors) within timeout")
+    raise SmokeFailure(f"no non-trivial frame (>= {MIN_COLORS} colors) within timeout; last: {last}")
 
 
 def _shutdown(proc, port):
@@ -101,12 +129,18 @@ def main(argv=None):
     if not os.path.isfile(args.exe):
         return _fail(f"exe not found: {args.exe}")
 
-    out_dir = args.out or os.path.join(
-        os.environ.get("TEMP", REPO_ROOT), "smoke-" + time.strftime("%Y%m%d-%H%M%S"))
+    # The runtime runs with the exe's directory as cwd, so every path handed to
+    # it must be absolute. Screenshot paths travel through the server's JSON
+    # parser, which does not unescape \uXXXX, so the out dir must be ASCII.
+    out_dir = os.path.abspath(args.out or os.path.join(
+        os.environ.get("TEMP", REPO_ROOT), "smoke-" + time.strftime("%Y%m%d-%H%M%S")))
+    if not out_dir.isascii():
+        return _fail(f"out dir must be an ASCII path: {out_dir}")
     memcards = os.path.join(out_dir, "memcards")
     os.makedirs(memcards, exist_ok=True)
 
-    cmd = [os.path.abspath(args.exe), "--game", os.path.abspath(args.game), "--disc", args.cue,
+    cmd = [os.path.abspath(args.exe), "--game", os.path.abspath(args.game),
+           "--disc", os.path.abspath(args.cue),
            "--no-launcher", "--hidden-window", "--debug-port", str(args.port),
            "--memcard-dir", memcards]
     env = dict(os.environ, PSX_HOST_MUTE="1")
@@ -118,13 +152,15 @@ def main(argv=None):
             deadline = time.monotonic() + args.timeout
             first = _wait_for_ping(proc, args.port, deadline)
             print(f"boot_smoke: first ping {first}")
-            later = _check_frames_advance(args.port)
+            later = _check_frames_advance(args.port, deadline)
             shot, reply = _wait_for_real_frame(proc, args.port, out_dir, deadline)
             print(f"boot_smoke: OK frame={later['frame']} "
                   f"shot={shot} size={reply.get('width')}x{reply.get('height')}")
             return 0
         except SmokeFailure as exc:
             return _fail(str(exc))
+        except Exception as exc:  # noqa: BLE001 - keep the one-line contract
+            return _fail(f"unexpected error: {type(exc).__name__}: {exc}")
         finally:
             _shutdown(proc, args.port)
 
