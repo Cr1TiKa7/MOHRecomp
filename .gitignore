@@ -90,3 +90,10 @@ starvation_dump.jsonl
 !/disc_probe.*.json
 !/disc_set.json
 !/.recomp.json
+
+# MOHRecomp additions (M0)
+overlay_captures.json
+memcards/
+savestates/
+Temp/
+.superpowers/
