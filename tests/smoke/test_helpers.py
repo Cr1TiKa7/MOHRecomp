@@ -5,13 +5,10 @@ Run from the repo root:  py -3 -m unittest discover -s tests/smoke -v
 
 import contextlib
 import io
-import json
 import os
-import socket
 import struct
 import sys
 import tempfile
-import threading
 import time
 import unittest
 import zlib
@@ -21,6 +18,7 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
 import pngcheck  # noqa: E402
 import psxdbg  # noqa: E402
+from fakes import FakeServer, _FakeProc, free_port as _free_port  # noqa: E402
 
 
 # --------------------------------------------------------------------------
@@ -110,60 +108,6 @@ class PngCheckTests(unittest.TestCase):
             f.write(b"\x89PNG\r\n\x1a\n" + _chunk(b"IHDR", ihdr) + _chunk(b"IEND", b""))
         with self.assertRaises(ValueError):
             pngcheck.distinct_colors(self.path)
-
-
-# --------------------------------------------------------------------------
-# Fake debug server: accepts connections, reads one line, answers one line
-# --------------------------------------------------------------------------
-
-class FakeServer:
-    def __init__(self, reply):
-        self.reply = reply
-        self.seen = []
-        self.sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        self.sock.bind(("127.0.0.1", 0))
-        self.sock.listen(5)
-        self.port = self.sock.getsockname()[1]
-        self._stop = False
-        self.thread = threading.Thread(target=self._run, daemon=True)
-        self.thread.start()
-
-    def _run(self):
-        self.sock.settimeout(0.2)
-        while not self._stop:
-            try:
-                conn, _ = self.sock.accept()
-            except (socket.timeout, OSError):
-                continue
-            with conn:
-                buf = b""
-                conn.settimeout(2.0)
-                try:
-                    while not buf.endswith(b"\n"):
-                        chunk = conn.recv(4096)
-                        if not chunk:
-                            break
-                        buf += chunk
-                except socket.timeout:
-                    pass
-                request = json.loads(buf.decode()) if buf.strip() else {}
-                if request:
-                    self.seen.append(request)
-                reply = self.reply(request) if callable(self.reply) else self.reply
-                conn.sendall((json.dumps(reply) + "\n").encode())
-
-    def close(self):
-        self._stop = True
-        self.sock.close()
-        self.thread.join(timeout=2)
-
-
-def _free_port():
-    s = socket.socket()
-    s.bind(("127.0.0.1", 0))
-    port = s.getsockname()[1]
-    s.close()
-    return port
 
 
 class PsxDbgTests(unittest.TestCase):
@@ -292,22 +236,6 @@ class BootSmokeTests(unittest.TestCase):
 
     def tearDown(self):
         self.tmp.cleanup()
-
-
-class _FakeProc:
-    """Stand-in for subprocess.Popen: poll() returns the given exit code (None = running)."""
-
-    def __init__(self, exit_code):
-        self.returncode = exit_code
-
-    def poll(self):
-        return self.returncode
-
-    def wait(self, timeout=None):
-        return self.returncode
-
-    def kill(self):
-        self.returncode = -9
 
 
 if __name__ == "__main__":

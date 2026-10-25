@@ -11,27 +11,23 @@ on stderr). The runtime instance started here is always shut down.
 
 import argparse
 import os
-import subprocess
+import subprocess  # noqa: F401 - tests patch boot_smoke.subprocess.Popen
 import sys
 import time
-import zlib
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
 import pngcheck  # noqa: E402
 import psxdbg  # noqa: E402
+import psxrun  # noqa: E402
 
 REPO_ROOT = os.path.normpath(os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", ".."))
 MIN_COLORS = 16
-POLL_SECS = 0.5
 SHOT_EVERY_SECS = 2.0
-# Errors a cold-starting or busy runtime can produce for a single request;
-# they are retried until the deadline instead of aborting the run.
-TRANSIENT = (ConnectionError, ValueError, KeyError, OSError, IndexError, zlib.error)
 
-
-class SmokeFailure(Exception):
-    pass
+SmokeFailure = psxrun.SmokeFailure
+TRANSIENT = psxrun.TRANSIENT
+_wait_for_ping = psxrun.wait_for_ping
 
 
 def _fail(msg):
@@ -39,39 +35,12 @@ def _fail(msg):
     return 1
 
 
-def _check_alive(proc):
-    if proc.poll() is not None:
-        raise SmokeFailure(f"runtime exited early with code {proc.returncode}")
-
-
-def _wait_for_ping(proc, port, deadline):
-    while time.monotonic() < deadline:
-        _check_alive(proc)
-        try:
-            return psxdbg.send("ping", port=port, timeout=2.0)
-        except ConnectionError:
-            time.sleep(POLL_SECS)
-    raise SmokeFailure("debug port never answered")
-
-
-def _read_frame(port, deadline):
-    last = "no reply"
-    while time.monotonic() < deadline:
-        try:
-            reply = psxdbg.send("frame", port=port)
-            return reply, int(reply["frame"])
-        except TRANSIENT as exc:
-            last = f"{type(exc).__name__}: {exc}"
-            time.sleep(POLL_SECS)
-    raise SmokeFailure(f"frame command never answered ({last})")
-
-
 def _check_frames_advance(port, deadline):
     # "ping" is answered by the server's I/O thread without a frame counter;
     # "frame" goes through the emulation thread and reports emulated frames.
-    _, first = _read_frame(port, deadline)
+    _, first = psxrun.read_frame(port, deadline)
     time.sleep(2.0)
-    reply, second = _read_frame(port, deadline)
+    reply, second = psxrun.read_frame(port, deadline)
     if second <= first:
         raise SmokeFailure(f"frame counter stuck at {first}")
     return reply
@@ -81,7 +50,7 @@ def _wait_for_real_frame(proc, port, out_dir, deadline):
     n = 0
     last = "no screenshot taken"
     while time.monotonic() < deadline:
-        _check_alive(proc)
+        psxrun.check_alive(proc)
         shot = os.path.join(out_dir, f"shot-{n:03d}.png").replace("\\", "/")
         try:
             reply = psxdbg.send("screenshot", port=port, path=shot)
@@ -101,19 +70,6 @@ def _wait_for_real_frame(proc, port, out_dir, deadline):
     raise SmokeFailure(f"no non-trivial frame (>= {MIN_COLORS} colors) within timeout; last: {last}")
 
 
-def _shutdown(proc, port):
-    if proc.poll() is None:
-        try:
-            psxdbg.send("quit", port=port, timeout=2.0)
-        except ConnectionError:
-            pass
-        try:
-            proc.wait(timeout=10)
-        except subprocess.TimeoutExpired:
-            proc.kill()
-            proc.wait(timeout=10)
-
-
 def main(argv=None):
     ap = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     ap.add_argument("--exe", required=True)
@@ -129,40 +85,31 @@ def main(argv=None):
     if not os.path.isfile(args.exe):
         return _fail(f"exe not found: {args.exe}")
 
-    # The runtime runs with the exe's directory as cwd, so every path handed to
-    # it must be absolute. Screenshot paths travel through the server's JSON
-    # parser, which does not unescape \uXXXX, so the out dir must be ASCII.
+    # Screenshot paths travel through the server's JSON parser, which does not
+    # unescape \uXXXX, so the out dir must be ASCII.
     out_dir = os.path.abspath(args.out or os.path.join(
         os.environ.get("TEMP", REPO_ROOT), "smoke-" + time.strftime("%Y%m%d-%H%M%S")))
     if not out_dir.isascii():
         return _fail(f"out dir must be an ASCII path: {out_dir}")
-    memcards = os.path.join(out_dir, "memcards")
-    os.makedirs(memcards, exist_ok=True)
+    os.makedirs(out_dir, exist_ok=True)
 
-    cmd = [os.path.abspath(args.exe), "--game", os.path.abspath(args.game),
-           "--disc", os.path.abspath(args.cue),
-           "--no-launcher", "--hidden-window", "--debug-port", str(args.port),
-           "--memcard-dir", memcards]
-    env = dict(os.environ, PSX_HOST_MUTE="1")
     print(f"boot_smoke: out={out_dir}")
-    with open(os.path.join(out_dir, "runtime.log"), "wb") as log:
-        proc = subprocess.Popen(cmd, cwd=os.path.dirname(os.path.abspath(args.exe)),
-                                stdout=log, stderr=subprocess.STDOUT, env=env)
-        try:
-            deadline = time.monotonic() + args.timeout
-            first = _wait_for_ping(proc, args.port, deadline)
-            print(f"boot_smoke: first ping {first}")
-            later = _check_frames_advance(args.port, deadline)
-            shot, reply = _wait_for_real_frame(proc, args.port, out_dir, deadline)
-            print(f"boot_smoke: OK frame={later['frame']} "
-                  f"shot={shot} size={reply.get('width')}x{reply.get('height')}")
-            return 0
-        except SmokeFailure as exc:
-            return _fail(str(exc))
-        except Exception as exc:  # noqa: BLE001 - keep the one-line contract
-            return _fail(f"unexpected error: {type(exc).__name__}: {exc}")
-        finally:
-            _shutdown(proc, args.port)
+    proc = psxrun.launch(args.exe, args.cue, args.game, args.port, out_dir)
+    try:
+        deadline = time.monotonic() + args.timeout
+        first = _wait_for_ping(proc, args.port, deadline)
+        print(f"boot_smoke: first ping {first}")
+        later = _check_frames_advance(args.port, deadline)
+        shot, reply = _wait_for_real_frame(proc, args.port, out_dir, deadline)
+        print(f"boot_smoke: OK frame={later['frame']} "
+              f"shot={shot} size={reply.get('width')}x{reply.get('height')}")
+        return 0
+    except SmokeFailure as exc:
+        return _fail(str(exc))
+    except Exception as exc:  # noqa: BLE001 - keep the one-line contract
+        return _fail(f"unexpected error: {type(exc).__name__}: {exc}")
+    finally:
+        psxrun.shutdown(proc, args.port)
 
 
 if __name__ == "__main__":

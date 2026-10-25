@@ -1,0 +1,120 @@
+"""Shared helpers for driving a running MOH_Recompiled instance (stdlib only).
+
+Launching, liveness, frame counter, pad input, RAM reads and shutdown, used by
+every smoke test. All remote calls go through psxdbg (one request per TCP
+connection).
+"""
+
+import os
+import subprocess
+import time
+import zlib
+
+import psxdbg
+
+POLL_SECS = 0.5
+# Errors a cold-starting or busy runtime can produce for a single request;
+# callers retry them until their deadline instead of aborting the run.
+TRANSIENT = (ConnectionError, ValueError, KeyError, OSError, IndexError, zlib.error)
+
+# PS1 digital pad bits; the debug server takes them inverted (0 = pressed).
+BUTTONS = {
+    "select": 0x0001, "start": 0x0008,
+    "up": 0x0010, "right": 0x0020, "down": 0x0040, "left": 0x0080,
+    "l2": 0x0100, "r2": 0x0200, "l1": 0x0400, "r1": 0x0800,
+    "triangle": 0x1000, "circle": 0x2000, "cross": 0x4000, "square": 0x8000,
+}
+
+
+class SmokeFailure(Exception):
+    pass
+
+
+def mask(*names):
+    held = 0
+    for name in names:
+        held |= BUTTONS[name]
+    return 0xFFFF & ~held
+
+
+def check_alive(proc):
+    if proc.poll() is not None:
+        raise SmokeFailure(f"runtime exited early with code {proc.returncode}")
+
+
+def launch(exe, cue, game, port, out_dir, env_extra=None):
+    """Start the runtime hidden with its own memory cards under out_dir.
+
+    The runtime's cwd is the exe's directory, so every path is made absolute.
+    stdout/stderr go to out_dir/runtime.log.
+    """
+    memcards = os.path.join(os.path.abspath(out_dir), "memcards")
+    os.makedirs(memcards, exist_ok=True)
+    cmd = [os.path.abspath(exe), "--game", os.path.abspath(game),
+           "--disc", os.path.abspath(cue),
+           "--no-launcher", "--hidden-window", "--debug-port", str(port),
+           "--memcard-dir", memcards]
+    env = dict(os.environ, PSX_HOST_MUTE="1", **(env_extra or {}))
+    with open(os.path.join(out_dir, "runtime.log"), "wb") as log:
+        return subprocess.Popen(cmd, cwd=os.path.dirname(os.path.abspath(exe)),
+                                stdout=log, stderr=subprocess.STDOUT, env=env)
+
+
+def wait_for_ping(proc, port, deadline):
+    while time.monotonic() < deadline:
+        check_alive(proc)
+        try:
+            return psxdbg.send("ping", port=port, timeout=2.0)
+        except ConnectionError:
+            time.sleep(POLL_SECS)
+    raise SmokeFailure("debug port never answered")
+
+
+def read_frame(port, deadline):
+    last = "no reply"
+    while time.monotonic() < deadline:
+        try:
+            reply = psxdbg.send("frame", port=port)
+            return reply, int(reply["frame"])
+        except TRANSIENT as exc:
+            last = f"{type(exc).__name__}: {exc}"
+            time.sleep(POLL_SECS)
+    raise SmokeFailure(f"frame command never answered ({last})")
+
+
+def wait_frame(port, frame, deadline):
+    while time.monotonic() < deadline:
+        try:
+            current = int(psxdbg.send("frame", port=port)["frame"])
+            if current >= frame:
+                return current
+        except TRANSIENT:
+            pass
+        time.sleep(POLL_SECS)
+    raise TimeoutError(f"frame {frame} not reached before deadline")
+
+
+def press(port, *names, frames=4):
+    psxdbg.send("press", port=port, buttons=mask(*names), frames=frames)
+
+
+def read_bytes(port, addr, n):
+    reply = psxdbg.send("read_ram", port=port, addr="0x%08X" % addr, len=n)
+    return bytes.fromhex(reply["hex"])
+
+
+def read_u8(port, addr):
+    return read_bytes(port, addr, 1)[0]
+
+
+def shutdown(proc, port):
+    if proc.poll() is None:
+        try:
+            psxdbg.send("quit", port=port, timeout=2.0)
+        except ConnectionError:
+            pass
+        try:
+            proc.wait(timeout=10)
+        except subprocess.TimeoutExpired:
+            proc.kill()
+            proc.wait(timeout=10)
