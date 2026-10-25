@@ -1,0 +1,15 @@
+{
+  "schema": "psxrecomp AOT methods v1",
+  "game_id": "SLES-02470",
+  "disc_hashes": {"sha256": "cf3b37769f0bd83dbf901e460af3c93591db137bbbd90fed9e91bfd2319fbba4"},
+  "checks": [
+    {"method": "words", "file": "SLES_024.70", "base": "0x8000F800",
+     "values": {"0x8003728C": "0x3C058004", "0x80037290": "0x24A59F28"}}
+  ],
+  "images": [
+    {"method": "fixed_address_files", "files": ["SHELL.BIN"], "load_addr": "0x80039F28",
+     "allow_missing": true}
+  ],
+  "expected_records": 1,
+  "static_output": "generated/overlays_static.c"
+}
