@@ -19,6 +19,9 @@ MENU_ITEM_STRIDE = 0x274         # bytes between ring entries
 
 # SHELL.BIN is loaded verbatim here (boot EXE: lui a1,0x8004 / addiu a1,a1,0x9F28).
 SHELL_LOAD_ADDR = 0x80039F28
+# First word of each overlay file: SHELL.BIN 7, LEVEL.BIN 5, LEVEL2P.BIN 6.
+SHELL_FILE_ID = 7
+LEVEL_FILE_ID = 5
 
 
 def menu_index_from_ptr(ptr, base):

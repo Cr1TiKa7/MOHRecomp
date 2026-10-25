@@ -50,10 +50,12 @@ pwsh -File tools/run-smoke.ps1 -Build dev -Test all
 
 | Test | Prüft | Dauer |
 |---|---|---|
-| `boot` | Bildzähler läuft, erstes echtes Bild, Speicherkarte angelegt und formatiert | ~15 s |
+| `boot` | Bildzähler läuft, erstes echtes Bild, Kartendatei angelegt und formatiert | ~15 s |
 | `intro` | Intro-Video bekommt MDEC-Daten, SPU-Ausgang hörbar (RMS ≥ 200) | ~45 s |
-| `menu` | Hauptmenü-Ring (6 Einträge), Options öffnen und mit Dreieck verlassen | ~2 min |
-| `coverage` | Ohne Runtime-Autocompile: Interpreter-Anteil < 1 %, statischer Overlay-Code lief, NEW GAME läuft weiter | ~2,5 min |
+| `menu` | Spiel hat die Speicherkarte abgefragt (`sio_state`), Hauptmenü-Ring (6 Einträge), Options öffnen und mit Dreieck verlassen | ~2 min |
+| `coverage` | Ohne Runtime-Autocompile und ohne DLL-Cache: Loader aktiv, keine DLL lief, Interpreter-Anteil < 1 %, statischer Overlay-Code lief. Danach NEW GAME mit X durchs Briefing, bis `LEVEL.BIN` an `0x80039F28` liegt, und das Spiel läuft weiter. | ~3 min |
+
+Die Tests starten das Spiel mit `SDL_AUDIODRIVER=dummy`, es ist also nichts zu hören. Die gemessenen Audio-Abgriffe liegen vor dem Ausgabegerät. `PSX_HOST_MUTE` wirkt in dieser Runtime nicht.
 
 - Jeder Test legt Log, Screenshots und Speicherkarten unter `D:\RecompDev\Temp\<test>-<Zeitstempel>\` ab.
 - Ist Port 4370 schon belegt, bricht er ab. Dann läuft noch eine andere Instanz.

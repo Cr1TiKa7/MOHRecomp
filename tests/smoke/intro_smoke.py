@@ -25,7 +25,7 @@ FMV_FRAME = 2000
 RMS_MIN = 200.0
 AUDIO_SECONDS = 2
 SAMPLE_RATE = 44100
-SPU_OUT_TAP = 0  # audio_trace.h AUDIO_TAP_SPU_OUT; recorded even with PSX_HOST_MUTE=1
+SPU_OUT_TAP = 0  # audio_trace.h AUDIO_TAP_SPU_OUT; recorded before the host device (SDL dummy driver is fine)
 
 
 def _fail(msg):

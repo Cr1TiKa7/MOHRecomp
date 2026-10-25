@@ -6,7 +6,8 @@ Usage (from anywhere):
 
 Fast-forwards to the main menu, waits until a RIGHT visibly moves the ring
 (presses during transitions are swallowed), walks all six entries back to the
-start, opens OPTIONS with X and leaves it with TRIANGLE (the game then
+start, checks the game has accessed the memory card, opens OPTIONS with X and
+leaves it with TRIANGLE (the game then
 selects NEW GAME again). The current entry is
 read from RAM (moh.MENU_ITEM_PTR_ADDR). Exit 0/1, one-line reason on stderr.
 """
@@ -95,6 +96,12 @@ def goto(port, index, base, deadline):
         raise SmokeFailure(f"could not reach menu entry {index}")
 
 
+def check_memcard_probed(sio):
+    """The game itself talked to the memory card (the runtime only formats the file)."""
+    if int(sio.get("mc_probes", 0)) + int(sio.get("mc_reads", 0)) == 0:
+        raise SmokeFailure("game never accessed the memory card (sio_state mc_probes/mc_reads = 0)")
+
+
 def _shot(port, out_dir, name):
     path = os.path.join(out_dir, name).replace("\\", "/")
     psxdbg.send("screenshot", port=port, path=path)
@@ -114,6 +121,7 @@ def check_menu(proc, port, out_dir, deadline):
     psxrun.wait_frame(port, moh.MENU_READY_FRAME, deadline)
     psxdbg.send("turbo", port=port, enabled=0)
     base, _ = walk_ring(port, deadline)
+    check_memcard_probed(psxdbg.send("sio_state", port=port))
     goto(port, OPTIONS_INDEX, base, deadline)
     menu_png = _shot(port, out_dir, "menu.png")
     psxrun.press(port, "cross")

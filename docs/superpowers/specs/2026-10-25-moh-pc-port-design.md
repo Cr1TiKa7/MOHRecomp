@@ -119,7 +119,8 @@ Erst wenn ein Meilenstein erfüllt ist, beginnt der nächste. Jeder bekommt eine
 - **Ladeadresse und Einstiegspunkte:**
   - `SHELL.BIN` liegt an `0x80039F28`. Belegt ist das im RAM und im Lader-Code der Boot-EXE (`lui a1,0x8004` / `addiu a1,a1,0x9F28` bei `0x8003728C`). Seit M1 steht das im Rezept (`allow_missing`, die Pipeline findet die Funktionen selbst).
   - Die Overlays sind rohe Dateien ohne PS-X-Header. Das erste Wort ist 7 (`SHELL`), 5 (`LEVEL`) oder 6 (`LEVEL2P`).
-  - Wohin `LEVEL.BIN` und `LEVEL2P.BIN` geladen werden, wird in M2 bzw. M3 im RAM geprüft.
+  - `LEVEL.BIN` ersetzt `SHELL.BIN` an derselben Basis `0x80039F28`. Belegt ist das im RAM nach NEW GAME, Briefing und Laden, bei M1. Ins Rezept kommt es in M2.
+  - Wohin `LEVEL2P.BIN` geladen wird, wird in M3 geprüft.
 - **Übergangslösung:** Mit `[runtime] overlay_cache = true` wird Code beim Spielen eingefangen und mit `tools/compile_overlays.py` kompiliert. Was fehlt, läuft im Interpreter: korrekt, aber langsamer.
 - **Fortschritt messen:**
   - `tools/stall_report.py` vergleicht `dispatch_native` mit `dispatch_interp_fallback`.
@@ -205,7 +206,7 @@ Erst wenn ein Meilenstein erfüllt ist, beginnt der nächste. Jeder bekommt eine
 | Framework ist Beta und ändert sich täglich | Fehler in der Runtime, Updates können Dinge kaputt machen | Gepinnter Stand, Updates nur bewusst, Framework-Fehler als Patch oder Upstream-Issue |
 | Noch nie ein Shooter portiert | Unbekannte Probleme mit GTE, Timing, Overlays | Meilensteine klein halten, früh in echte Levels (M2) |
 | PAL/50 Hz nirgends dokumentiert | Timing- oder Tempo-Fehler | In M1/M2 Tempo mit dem Original vergleichen |
-| Ladeadresse von `LEVEL.BIN`/`LEVEL2P.BIN` noch unbelegt (`SHELL.BIN`: `0x80039F28`, belegt in M1) | Rezept stimmt nicht | Im RAM und im Lader-Code prüfen (M2/M3), Rückfall auf Runtime-Capture |
+| Ladeadresse von `LEVEL2P.BIN` noch unbelegt (`SHELL.BIN` und `LEVEL.BIN`: `0x80039F28`, belegt in M1) | Rezept stimmt nicht | Im RAM prüfen (M3), Rückfall auf Runtime-Capture |
 | Maus braucht Framework-Patch | Wartung bei Framework-Updates | Patch klein halten, später Upstream-PR anbieten |
 | Zielhilfe/Grenzen im Original | Maus fühlt sich „gebremst“ an | In M4 analysieren, im Maus-Modus abschaltbar machen |
 | Frame-Gen verwirft schnelle Drehungen | Ruckeln beim Umsehen | Stufe 2 (Render Passes) einplanen |

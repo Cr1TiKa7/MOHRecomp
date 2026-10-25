@@ -48,6 +48,23 @@ class RemoteTests(unittest.TestCase):
         finally:
             srv.close()
 
+    def test_wait_u32_returns_when_value_matches(self):
+        words = iter(["07000000", "07000000", "05000000"])
+        srv = FakeServer(lambda request: {"id": 1, "ok": True, "hex": next(words)})
+        try:
+            psxrun.wait_u32(srv.port, 0x80039F28, 5, time.monotonic() + 5)
+        finally:
+            srv.close()
+        self.assertEqual(len(srv.seen), 3)
+
+    def test_wait_u32_times_out_with_last_value(self):
+        srv = FakeServer({"id": 1, "ok": True, "hex": "07000000"})
+        try:
+            with self.assertRaisesRegex(TimeoutError, "0x00000007"):
+                psxrun.wait_u32(srv.port, 0x80039F28, 5, time.monotonic() + 1)
+        finally:
+            srv.close()
+
     def test_read_bytes_decodes_hex(self):
         srv = FakeServer({"id": 1, "ok": True, "hex": "0a0b"})
         try:
@@ -56,6 +73,19 @@ class RemoteTests(unittest.TestCase):
             srv.close()
         self.assertEqual(srv.seen[0]["addr"], "0x80000000")
         self.assertEqual(srv.seen[0]["len"], 2)
+
+
+class LaunchTests(unittest.TestCase):
+    def test_launch_uses_dummy_audio_driver(self):
+        # PSX_HOST_MUTE is not read by the runtime; without this the smoke
+        # tests play game audio on the default output device.
+        import tempfile
+        from unittest import mock
+
+        with tempfile.TemporaryDirectory() as out, \
+                mock.patch.object(psxrun.subprocess, "Popen") as popen:
+            psxrun.launch(sys.executable, "x.cue", "game.toml", 4370, out)
+        self.assertEqual(popen.call_args.kwargs["env"]["SDL_AUDIODRIVER"], "dummy")
 
 
 if __name__ == "__main__":

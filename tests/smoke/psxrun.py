@@ -46,7 +46,10 @@ def launch(exe, cue, game, port, out_dir, env_extra=None):
     """Start the runtime hidden with its own memory cards under out_dir.
 
     The runtime's cwd is the exe's directory, so every path is made absolute.
-    stdout/stderr go to out_dir/runtime.log.
+    stdout/stderr go to out_dir/runtime.log. SDL's dummy audio driver keeps the
+    game silent on the host (PSX_HOST_MUTE is not read by this runtime); the
+    SPU/CD/host audio taps that intro_smoke measures are recorded before the
+    device, so they are unaffected.
     """
     memcards = os.path.join(os.path.abspath(out_dir), "memcards")
     os.makedirs(memcards, exist_ok=True)
@@ -54,7 +57,7 @@ def launch(exe, cue, game, port, out_dir, env_extra=None):
            "--disc", os.path.abspath(cue),
            "--no-launcher", "--hidden-window", "--debug-port", str(port),
            "--memcard-dir", memcards]
-    env = dict(os.environ, PSX_HOST_MUTE="1", **(env_extra or {}))
+    env = dict(os.environ, SDL_AUDIODRIVER="dummy", **(env_extra or {}))
     with open(os.path.join(out_dir, "runtime.log"), "wb") as log:
         return subprocess.Popen(cmd, cwd=os.path.dirname(os.path.abspath(exe)),
                                 stdout=log, stderr=subprocess.STDOUT, env=env)
@@ -105,6 +108,25 @@ def read_bytes(port, addr, n):
 
 def read_u8(port, addr):
     return read_bytes(port, addr, 1)[0]
+
+
+def read_u32(port, addr):
+    return int.from_bytes(read_bytes(port, addr, 4), "little")
+
+
+def wait_u32(port, addr, value, deadline):
+    """Poll the little-endian word at addr until it equals value."""
+    last = None
+    while time.monotonic() < deadline:
+        try:
+            last = read_u32(port, addr)
+            if last == value:
+                return
+        except TRANSIENT:
+            pass
+        time.sleep(POLL_SECS)
+    seen = "unreadable" if last is None else f"0x{last:08X}"
+    raise TimeoutError(f"word at 0x{addr:08X} never became 0x{value:08X} (last {seen})")
 
 
 def shutdown(proc, port):
