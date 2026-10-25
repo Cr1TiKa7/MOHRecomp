@@ -1,0 +1,31 @@
+{
+  "cue_path": "D:\\Downloads\\Medal of Honor (Europe)\\Medal of Honor (Europe).cue",
+  "cue_name": "Medal of Honor (Europe).cue",
+  "bin_name": "Medal of Honor (Europe).bin",
+  "track_count": 1,
+  "data_track_size": 741980736,
+  "data_track_md5": "5e2c8aaba7c3b939093584deb84711c8",
+  "data_track_sha1": "8c2e96724118908833d0ca485760dd208238aa87",
+  "data_track_crc32": "e5070481",
+  "boot_exe": "SLES_024.70",
+  "serial": "SLES-02470",
+  "serial_exe": "SLES_024.70",
+  "volume_id": "MOH_PALUK",
+  "display_name": "MOH",
+  "load_address": "0x80010000",
+  "entry_pc": "0x8001E004",
+  "text_size": "0x0002A000",
+  "stack_base": "0x801FFFF0",
+  "require_cue": true,
+  "required_disc_fp": "d7a1aa9191b3dab30ba62c8d83960dd4f895ee3d7a06670feb011f9cc3a6dd18",
+  "boot_exe_sha256": "aa3b8979856fe2ccbacea0a05ab780249dd0f4dcda736cf75167ae130af20bff",
+  "seed_count": 297,
+  "warnings": [
+    "cue has only 1 TRACK \u2014 Track-01-only dumps fail multi-track netplay/catalog gates; prefer a full Redump cue."
+  ],
+  "notes": [
+    "entry_pc/load_address/text_size/stack_base taken from PS-X EXE header.",
+    "seeds are first-pass boot-EXE JAL targets (+ entry); expect to grow as overlays / runtime paths are discovered.",
+    "required_disc_fp is psxrecomp-toc-v1 (matches runtime DiscIdentity)."
+  ]
+}

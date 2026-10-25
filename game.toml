@@ -1,0 +1,54 @@
+# Autofilled by tools/new_project_layout/probe_disc.py from your legal dump.
+# Review before shipping. Runtime quirks / overlay seeds still need hand work.
+
+[game]
+name = "MOH"
+id = "SLES-02470"
+players = 1
+exe = "disc/SLES_024.70"
+disc = "D:\\Downloads\\Medal of Honor (Europe)\\Medal of Honor (Europe).cue"
+load_address = "0x80010000"
+entry_pc = "0x8001E004"
+text_size = "0x0002A000"
+stack_base = "0x801FFFF0"
+
+# Digests are for data Track 01 (first BINARY FILE / TRACK 01).
+[prepare_disc]
+out_dir = "disc"
+bin_name = "Medal of Honor (Europe).bin"
+cue_name = "Medal of Honor (Europe).cue"
+boot_exe = "SLES_024.70"
+known_sizes = [741980736]
+known_md5 = [
+  "5e2c8aaba7c3b939093584deb84711c8",
+]
+known_sha1 = [
+  "8c2e96724118908833d0ca485760dd208238aa87",
+]
+known_crc32 = [
+  "e5070481",
+]
+
+[recompiler]
+seeds = "seeds/ghidra_funcs.txt"
+out_dir = "generated"
+strict = true
+
+[runtime]
+window_title = "MOH Recompiled"
+memcard_dir = "saves"
+overlay_cache = true
+
+[video]
+renderer = "opengl"
+aspect_ratio = "4:3"
+
+[controller]
+default_mode = "digital"
+
+# Online mount gate: digests + track count + optional TOC fingerprint
+# (see docs/NETPLAY.md).
+[netplay]
+require_cue = true
+required_tracks = 1
+required_disc_fp = "d7a1aa9191b3dab30ba62c8d83960dd4f895ee3d7a06670feb011f9cc3a6dd18"
