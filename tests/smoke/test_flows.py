@@ -79,5 +79,46 @@ class OverlayCountersTests(unittest.TestCase):
             srv.close()
 
 
+class WaitInLevelTests(unittest.TestCase):
+    """The loading poster shows right after LEVEL.BIN lands; the level view differs strongly."""
+
+    def _server(self, colors):
+        from test_helpers import _write_png
+
+        shots = iter(colors)
+
+        def reply(request):
+            if request["cmd"] == "screenshot":
+                _write_png(request["path"], 4, 4, [next(shots)] * 16)
+                return {"id": 1, "ok": True, "width": 4, "height": 4}
+            return {"id": 1, "ok": True}
+
+        return FakeServer(reply)
+
+    def test_returns_after_two_shots_differ_from_loading_screen(self):
+        import tempfile
+
+        bright, dark = (200, 180, 120), (20, 25, 30)
+        srv = self._server([bright, bright, dark, dark, dark])
+        try:
+            with tempfile.TemporaryDirectory() as out:
+                flows.wait_until_in_level(srv.port, out, time.monotonic() + 5, poll_secs=0.01)
+        finally:
+            srv.close()
+        self.assertEqual(sum(1 for r in srv.seen if r["cmd"] == "screenshot"), 4)
+
+    def test_gives_up_while_loading_screen_stays(self):
+        import tempfile
+
+        bright = (200, 180, 120)
+        srv = self._server([bright] * 500)
+        try:
+            with tempfile.TemporaryDirectory() as out, \
+                    self.assertRaisesRegex(psxrun.SmokeFailure, "loading screen"):
+                flows.wait_until_in_level(srv.port, out, time.monotonic() + 0.5, poll_secs=0.01)
+        finally:
+            srv.close()
+
+
 if __name__ == "__main__":
     unittest.main()

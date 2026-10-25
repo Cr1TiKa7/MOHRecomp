@@ -1,9 +1,9 @@
 # Run smoke tests against a local build.
-# Usage:  pwsh -File tools/run-smoke.ps1 [-Build dev|release] [-Test boot|intro|menu|coverage|all] [-Port 4370]
+# Usage:  pwsh -File tools/run-smoke.ps1 [-Build dev|release] [-Test boot|intro|menu|coverage|level|all] [-Port 4370]
 # 'all' runs boot, intro, menu and coverage in that order and stops at the first failure.
 param(
     [ValidateSet('dev', 'release')][string]$Build = 'dev',
-    [ValidateSet('boot', 'intro', 'menu', 'coverage', 'all')][string]$Test = 'boot',
+    [ValidateSet('boot', 'intro', 'menu', 'coverage', 'level', 'all')][string]$Test = 'boot',
     [int]$Port = 4370
 )
 

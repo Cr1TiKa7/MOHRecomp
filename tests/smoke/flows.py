@@ -4,10 +4,12 @@ Main-menu navigation, the way from boot into the menu and from NEW GAME into
 Mission 1 Level 1, and the overlay dispatch counters used for coverage.
 """
 
+import os
 import struct
 import time
 
 import moh
+import pngcheck
 import psxdbg
 import psxrun
 
@@ -16,6 +18,7 @@ STEP_SECS = 1.5
 ACTIVATION_TRIES = 10
 NUDGE_SECS = 3.0
 LEVEL_LOAD_SECS = 120.0   # FMVs + briefing + loading took ~15-40 s with X every 3 s
+IN_LEVEL_DIFF = 40.0      # bright loading poster vs. the dark night level of M1L1
 
 
 # --------------------------------------------------------------------------
@@ -108,6 +111,43 @@ def advance_until_level(port, deadline, nudge_secs=NUDGE_SECS):
     seen = "unreadable" if last is None else f"0x{last:08X}"
     raise SmokeFailure(f"LEVEL.BIN never replaced SHELL.BIN at 0x{moh.SHELL_LOAD_ADDR:08X} "
                        f"(overlay word {seen})")
+
+
+def shot(port, out_dir, name):
+    path = os.path.join(out_dir, name).replace("\\", "/")
+    reply = psxdbg.send("screenshot", port=port, path=path)
+    if not reply.get("ok") or not os.path.isfile(path):
+        raise SmokeFailure(f"screenshot failed: {reply.get('error', reply)}")
+    return path
+
+
+def screen_diff(a, b):
+    try:
+        return pngcheck.mean_abs_diff(a, b)
+    except ValueError:  # display size changed: a different screen altogether
+        return 255.0
+
+
+def wait_until_in_level(port, out_dir, deadline, poll_secs=2.0, min_diff=IN_LEVEL_DIFF):
+    """Wait until the level view replaced the loading poster; returns the first in-level shot.
+
+    Right after LEVEL.BIN lands the "On to Victory!" poster is on screen; it is
+    taken as the reference of this run. The level counts as running once two
+    consecutive screenshots differ from it by more than min_diff.
+    """
+    ref = shot(port, out_dir, "loading_ref.png")
+    hits, n = 0, 0
+    while time.monotonic() < deadline:
+        time.sleep(poll_secs)
+        current = shot(port, out_dir, f"loading{n:03d}.png")
+        n += 1
+        if screen_diff(ref, current) > min_diff:
+            hits += 1
+            if hits >= 2:
+                return current
+        else:
+            hits = 0
+    raise SmokeFailure("still on the loading screen after LEVEL.BIN was loaded")
 
 
 def start_new_game(port, base, deadline):
