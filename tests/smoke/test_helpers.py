@@ -109,6 +109,24 @@ class PngCheckTests(unittest.TestCase):
         with self.assertRaises(ValueError):
             pngcheck.distinct_colors(self.path)
 
+    def test_mean_abs_diff_identical_is_zero(self):
+        px = [(x * 10, y * 20, 7) for y in range(4) for x in range(4)]
+        _write_png(self.path, 4, 4, px, filter_type=2)
+        self.assertEqual(pngcheck.mean_abs_diff(self.path, self.path), 0.0)
+
+    def test_mean_abs_diff_known_value(self):
+        other = os.path.join(self.tmp.name, "u.png")
+        _write_png(self.path, 2, 2, [(0, 0, 0)] * 4, filter_type=3)
+        _write_png(other, 2, 2, [(30, 30, 30)] * 2 + [(0, 0, 0)] * 2, filter_type=4)
+        self.assertEqual(pngcheck.mean_abs_diff(self.path, other), 15.0)
+
+    def test_mean_abs_diff_size_mismatch_raises(self):
+        other = os.path.join(self.tmp.name, "u.png")
+        _write_png(self.path, 2, 2, [(0, 0, 0)] * 4)
+        _write_png(other, 4, 1, [(0, 0, 0)] * 4)
+        with self.assertRaises(ValueError):
+            pngcheck.mean_abs_diff(self.path, other)
+
 
 class PsxDbgTests(unittest.TestCase):
     def test_send_roundtrip(self):

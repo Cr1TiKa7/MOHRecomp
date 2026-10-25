@@ -1,0 +1,50 @@
+"""Unit tests for the MOH-specific constants and helpers in moh.py."""
+
+import os
+import sys
+import unittest
+
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+
+import moh  # noqa: E402
+
+BASE = 0x801A93D8  # entry array base seen in one run; it moves between runs
+S = moh.MENU_ITEM_STRIDE
+
+
+class MenuIndexTests(unittest.TestCase):
+    def test_first_item(self):
+        self.assertEqual(moh.menu_index_from_ptr(BASE, BASE), 0)
+
+    def test_last_item(self):
+        self.assertEqual(moh.menu_index_from_ptr(BASE + 5 * S, BASE), 5)
+
+    def test_unaligned_pointer_is_none(self):
+        self.assertIsNone(moh.menu_index_from_ptr(BASE + 0x10, BASE))
+
+    def test_past_ring_is_none(self):
+        self.assertIsNone(moh.menu_index_from_ptr(BASE + 6 * S, BASE))
+
+    def test_below_base_is_none(self):
+        self.assertIsNone(moh.menu_index_from_ptr(BASE - S, BASE))
+
+    def test_ring_has_six_items(self):
+        self.assertEqual(len(moh.MENU_RING), 6)
+
+
+class RingStepTests(unittest.TestCase):
+    def test_forward_step(self):
+        self.assertTrue(moh.is_ring_step(BASE + S, BASE + 2 * S))
+
+    def test_wrap_from_last_to_first(self):
+        self.assertTrue(moh.is_ring_step(BASE + 5 * S, BASE))
+
+    def test_no_movement_is_not_a_step(self):
+        self.assertFalse(moh.is_ring_step(BASE + S, BASE + S))
+
+    def test_backward_step_is_not_a_step(self):
+        self.assertFalse(moh.is_ring_step(BASE + 2 * S, BASE + S))
+
+
+if __name__ == "__main__":
+    unittest.main()

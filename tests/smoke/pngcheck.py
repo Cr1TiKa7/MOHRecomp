@@ -1,4 +1,4 @@
-"""Count distinct pixel values in a PNG (stdlib only).
+"""Inspect PNG screenshots: distinct colors and pixel difference (stdlib only).
 
 Supports 8-bit RGB (color type 2) and RGBA (color type 6), non-interlaced,
 all five PNG filter types. Anything else raises ValueError.
@@ -26,13 +26,14 @@ def _read_chunks(data):
         pos += 12 + length
 
 
-def distinct_colors(path, limit=256):
+def read_pixels(path):
+    """(width, height, bytes_per_pixel, rows) with every row unfiltered."""
     with open(path, "rb") as f:
         data = f.read()
     if not data.startswith(_SIGNATURE):
         raise ValueError(f"{path}: not a PNG")
 
-    width = height = None
+    width = height = bpp = None
     idat = bytearray()
     for tag, body in _read_chunks(data):
         if tag == b"IHDR":
@@ -52,7 +53,7 @@ def distinct_colors(path, limit=256):
     raw = zlib.decompress(bytes(idat))
     stride = width * bpp
     prev = bytearray(stride)
-    seen = set()
+    rows = []
     pos = 0
     for _ in range(height):
         ftype = raw[pos]
@@ -72,9 +73,27 @@ def distinct_colors(path, limit=256):
                 row[i] = (row[i] + _paeth(a, b, c)) & 0xFF
             elif ftype != 0:
                 raise ValueError(f"{path}: bad filter type {ftype}")
-        for i in range(0, stride, bpp):
-            seen.add(bytes(row[i:i + bpp]))
+        rows.append(bytes(row))
+        prev = row
+    return width, height, bpp, rows
+
+
+def distinct_colors(path, limit=256):
+    _w, _h, bpp, rows = read_pixels(path)
+    seen = set()
+    for row in rows:
+        for i in range(0, len(row), bpp):
+            seen.add(row[i:i + bpp])
             if len(seen) >= limit:
                 return limit
-        prev = row
     return len(seen)
+
+
+def mean_abs_diff(path_a, path_b):
+    """Mean absolute difference over every channel byte of two same-size PNGs."""
+    wa, ha, bpa, rows_a = read_pixels(path_a)
+    wb, hb, bpb, rows_b = read_pixels(path_b)
+    if (wa, ha, bpa) != (wb, hb, bpb):
+        raise ValueError(f"size mismatch: {wa}x{ha}x{bpa} vs {wb}x{hb}x{bpb}")
+    total = sum(abs(x - y) for ra, rb in zip(rows_a, rows_b) for x, y in zip(ra, rb))
+    return total / (wa * ha * bpa)
