@@ -30,7 +30,8 @@ import wavcheck  # noqa: E402
 REPO_ROOT = os.path.normpath(os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", ".."))
 GAME_ID = "SLES-02470"
 FPS_MIN = 48.0             # PAL 50 Hz with 4 % tolerance
-FPS_WINDOW_SECS = 10.0
+FPS_WINDOW_SECS = 5.0
+FPS_WINDOWS = 3
 LEVEL_INTERP_MAX = 0.01
 RMS_MIN = 200.0
 SAMPLE_RATE = 44100
@@ -59,12 +60,25 @@ def _hold(port, names, secs):
         psxdbg.send("clear_input", port=port)
 
 
+def fps_verdict(windows):
+    """Median of the window rates: one window disturbed by other host load cannot decide."""
+    if len(windows) < FPS_WINDOWS:
+        raise ValueError(f"need {FPS_WINDOWS} fps windows, got {len(windows)}")
+    return sorted(windows)[len(windows) // 2]
+
+
 def measure_fps(port, deadline):
-    _, first = psxrun.read_frame(port, deadline)
-    start = time.monotonic()
-    time.sleep(FPS_WINDOW_SECS)
-    _, last = psxrun.read_frame(port, deadline)
-    return (last - first) / (time.monotonic() - start)
+    """(verdict fps, per-window fps, emulation ms per frame from frame_perf)."""
+    windows = []
+    for _ in range(FPS_WINDOWS):
+        _, first = psxrun.read_frame(port, deadline)
+        start = time.monotonic()
+        time.sleep(FPS_WINDOW_SECS)
+        _, last = psxrun.read_frame(port, deadline)
+        windows.append((last - first) / (time.monotonic() - start))
+    perf = psxdbg.send("frame_perf", port=port)
+    emu_ms = perf.get("all", {}).get("emu_cpu_ms_avg") if perf.get("ok") else None
+    return fps_verdict(windows), windows, emu_ms
 
 
 def measure_rms(port, out_dir):
@@ -115,9 +129,11 @@ def check_level(proc, port, out_dir, deadline, autocompile_off):
     flows.wait_until_in_level(port, out_dir, min(deadline, time.monotonic() + IN_LEVEL_SECS))
     before = flows.overlay_counters(port)
 
-    fps = measure_fps(port, deadline)
+    fps, windows, emu_ms = measure_fps(port, deadline)
     if fps < FPS_MIN:
-        raise SmokeFailure(f"level runs at {fps:.1f} fps, need >= {FPS_MIN}")
+        detail = ", ".join(f"{w:.1f}" for w in windows)
+        raise SmokeFailure(f"level runs at {fps:.1f} fps (windows {detail}; emulation "
+                           f"{emu_ms} ms/frame, 20 ms = PAL budget), need >= {FPS_MIN}")
     rms = measure_rms(port, out_dir)
     if rms < RMS_MIN:
         raise SmokeFailure(f"level audio too quiet (rms={rms:.1f})")

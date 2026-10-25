@@ -8,8 +8,10 @@
   ],
   "images": [
     {"method": "fixed_address_files", "files": ["SHELL.BIN"], "load_addr": "0x80039F28",
+     "allow_missing": true},
+    {"method": "fixed_address_files", "files": ["LEVEL.BIN"], "load_addr": "0x80039F28",
      "allow_missing": true}
   ],
-  "expected_records": 1,
+  "expected_records": 2,
   "static_output": "generated/overlays_static.c"
 }
