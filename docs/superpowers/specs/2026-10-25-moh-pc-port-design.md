@@ -100,8 +100,8 @@ Erst wenn ein Meilenstein erfüllt ist, beginnt der nächste. Jeder bekommt eine
 | # | Meilenstein | Fertig, wenn… |
 |---|---|---|
 | **M0** | Einrichtung | Toolchain liegt auf D:, das Projekt ist angelegt und baut, die `.exe` startet bis zum ersten Bild (PS-Logo oder Legal-Screen). Die Spec ist ins Repo committet. |
-| **M1** | Bis ins Menü | Intro-Videos laufen mit Ton. Das Hauptmenü (`SHELL.BIN`) lässt sich per Fernsteuerung bedienen. Speichern und Laden auf die Speicherkarte funktioniert. |
-| **M2** | Erstes Level | Mission 1, Level 1 (`LEVEL.BIN`) lädt und ist ohne Absturz von Start bis Levelende spielbar: Ton, Gegner, Briefing, Ladebildschirme. Geprüft wird per Fernsteuerung, notfalls mit Speicher-Tricks (z. B. unverwundbar), oder du spielst es kurz durch. |
+| **M1** | Bis ins Menü | Intro-Videos laufen mit Ton. Das Hauptmenü (`SHELL.BIN`, nativ aus Disc-Daten) lässt sich per Fernsteuerung bedienen. Die Speicherkarte wird angelegt und erkannt. |
+| **M2** | Erstes Level | Mission 1, Level 1 (`LEVEL.BIN`) lädt und ist ohne Absturz von Start bis Levelende spielbar: Ton, Gegner, Briefing, Ladebildschirme. Geprüft wird per Fernsteuerung, notfalls mit Speicher-Tricks (z. B. unverwundbar), oder du spielst es kurz durch. Nach Levelende speichern, nach Neustart laden: Das Spiel speichert erst nach Missionen, das Menü hat keinen Speicherpunkt (Änderung vom 2026-10-25). |
 | **M3** | Ganzes Spiel | Alle Missionen laden und lassen sich abschließen. Die drei Overlays sind aus Disc-Daten vorkompiliert. Mit `PSX_OVERLAY_AUTOCOMPILE_OFF=1` liegt `dispatch_interp_fallback` laut `stall_report` unter 1 % aller Dispatches, gemessen über je 10 Minuten Menü, Einzelspieler-Level und Videos. Splitscreen startet ohne Absturz. Den kompletten Durchlauf spielst du. |
 | **M4** | Maus + Tastatur | Freies Zielen mit der Maus, Empfindlichkeit einstellbar, Y-Achse invertierbar. WASD-Bewegung, Tasten in einer Konfigdatei frei belegbar. Gamepad funktioniert unverändert. Du nimmst das Spielgefühl ab. |
 | **M5** | Bild | 16:9 ohne Objekte, die am neuen Bildrand verschwinden. HUD unverzerrt und korrekt verankert. Interne Auflösung bis 4K. Videos mit Pillarbox. Polygone wackeln nicht mehr (PGXP). |
@@ -116,7 +116,10 @@ Erst wenn ein Meilenstein erfüllt ist, beginnt der nächste. Jeder bekommt eine
   - `load_addr` wird über `checks[].method: "words"` gegen den Lader-Code in der Boot-EXE abgesichert.
   - Daraus entsteht mit `static_output: "generated/overlays_static.c"` nativer Code.
   - Die Pipeline: `tools/aot_overlay_pipeline.py extract|static|release`, Prüfung mit `tools/audit_aot_cache.py`.
-- **Ladeadresse und Einstiegspunkte** lese ich aus dem Lader-Code der Boot-EXE. Dass alle drei Dateien an dieselbe Adresse geladen werden, ist eine Annahme. Sie wird in M1 geprüft.
+- **Ladeadresse und Einstiegspunkte:**
+  - `SHELL.BIN` liegt an `0x80039F28`. Belegt ist das im RAM und im Lader-Code der Boot-EXE (`lui a1,0x8004` / `addiu a1,a1,0x9F28` bei `0x8003728C`). Seit M1 steht das im Rezept (`allow_missing`, die Pipeline findet die Funktionen selbst).
+  - Die Overlays sind rohe Dateien ohne PS-X-Header. Das erste Wort ist 7 (`SHELL`), 5 (`LEVEL`) oder 6 (`LEVEL2P`).
+  - Wohin `LEVEL.BIN` und `LEVEL2P.BIN` geladen werden, wird in M2 bzw. M3 im RAM geprüft.
 - **Übergangslösung:** Mit `[runtime] overlay_cache = true` wird Code beim Spielen eingefangen und mit `tools/compile_overlays.py` kompiliert. Was fehlt, läuft im Interpreter: korrekt, aber langsamer.
 - **Fortschritt messen:**
   - `tools/stall_report.py` vergleicht `dispatch_native` mit `dispatch_interp_fallback`.
@@ -202,7 +205,7 @@ Erst wenn ein Meilenstein erfüllt ist, beginnt der nächste. Jeder bekommt eine
 | Framework ist Beta und ändert sich täglich | Fehler in der Runtime, Updates können Dinge kaputt machen | Gepinnter Stand, Updates nur bewusst, Framework-Fehler als Patch oder Upstream-Issue |
 | Noch nie ein Shooter portiert | Unbekannte Probleme mit GTE, Timing, Overlays | Meilensteine klein halten, früh in echte Levels (M2) |
 | PAL/50 Hz nirgends dokumentiert | Timing- oder Tempo-Fehler | In M1/M2 Tempo mit dem Original vergleichen |
-| Gleiche Ladeadresse der Overlays ist nur angenommen | Rezept stimmt nicht | Im Lader-Code prüfen (M1), Rückfall auf Runtime-Capture |
+| Ladeadresse von `LEVEL.BIN`/`LEVEL2P.BIN` noch unbelegt (`SHELL.BIN`: `0x80039F28`, belegt in M1) | Rezept stimmt nicht | Im RAM und im Lader-Code prüfen (M2/M3), Rückfall auf Runtime-Capture |
 | Maus braucht Framework-Patch | Wartung bei Framework-Updates | Patch klein halten, später Upstream-PR anbieten |
 | Zielhilfe/Grenzen im Original | Maus fühlt sich „gebremst“ an | In M4 analysieren, im Maus-Modus abschaltbar machen |
 | Frame-Gen verwirft schnelle Drehungen | Ruckeln beim Umsehen | Stufe 2 (Render Passes) einplanen |

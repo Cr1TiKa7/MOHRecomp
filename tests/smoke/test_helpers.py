@@ -237,6 +237,35 @@ class BootSmokeTests(unittest.TestCase):
         self.assertIn("ASCII", stderr.getvalue())
         popen.assert_not_called()
 
+    def _card(self, data):
+        path = os.path.join(self.tmp.name, "card1.mcd")
+        with open(path, "wb") as fh:
+            fh.write(data)
+        return path
+
+    def test_memcard_ok(self):
+        import boot_smoke
+
+        boot_smoke.check_memcard(self._card(b"MC" + bytes(131070)))
+
+    def test_memcard_missing(self):
+        import boot_smoke
+
+        with self.assertRaisesRegex(boot_smoke.SmokeFailure, "missing"):
+            boot_smoke.check_memcard(os.path.join(self.tmp.name, "nope.mcd"))
+
+    def test_memcard_wrong_size(self):
+        import boot_smoke
+
+        with self.assertRaisesRegex(boot_smoke.SmokeFailure, "size"):
+            boot_smoke.check_memcard(self._card(b"MC" + bytes(998)))
+
+    def test_memcard_unformatted(self):
+        import boot_smoke
+
+        with self.assertRaisesRegex(boot_smoke.SmokeFailure, "format"):
+            boot_smoke.check_memcard(self._card(bytes(131072)))
+
     def test_relative_paths_made_absolute(self):
         import boot_smoke
 

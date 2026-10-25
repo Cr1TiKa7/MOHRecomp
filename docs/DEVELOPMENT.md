@@ -44,16 +44,53 @@ py -3 psxrecomp\psxrecomp_cli.py rebuild --config game.toml --project-root . --b
 # Unit-Tests der Test-Helfer
 py -3 -m unittest discover -s tests/smoke -v
 
-# Boot-Smoke-Test: startet build-dev versteckt, prüft Bildzähler und Bildinhalt, beendet das Spiel
-pwsh -File tools/run-smoke.ps1 -Build dev
+# Smoke-Tests gegen build-dev: einzeln (-Test boot|intro|menu|coverage) oder alle nacheinander
+pwsh -File tools/run-smoke.ps1 -Build dev -Test all
 ```
 
-- Der Smoke-Test legt Log, Screenshots und Speicherkarten unter `D:\RecompDev\Temp\smoke-<Zeitstempel>\` ab.
+| Test | Prüft | Dauer |
+|---|---|---|
+| `boot` | Bildzähler läuft, erstes echtes Bild, Speicherkarte angelegt und formatiert | ~15 s |
+| `intro` | Intro-Video bekommt MDEC-Daten, SPU-Ausgang hörbar (RMS ≥ 200) | ~45 s |
+| `menu` | Hauptmenü-Ring (6 Einträge), Options öffnen und mit Dreieck verlassen | ~2 min |
+| `coverage` | Ohne Runtime-Autocompile: Interpreter-Anteil < 1 %, statischer Overlay-Code lief, NEW GAME läuft weiter | ~2,5 min |
+
+- Jeder Test legt Log, Screenshots und Speicherkarten unter `D:\RecompDev\Temp\<test>-<Zeitstempel>\` ab.
 - Ist Port 4370 schon belegt, bricht er ab. Dann läuft noch eine andere Instanz.
+- Gemeinsame Helfer stehen in `tests/smoke/psxrun.py` (Start, Tasten, RAM, Beenden), spielspezifische Fakten in `tests/smoke/moh.py`.
+
+## Overlays vorab nativ (`aot/overlays.json`)
+
+`SHELL.BIN` (Menüs) wird aus den Disc-Daten vorab kompiliert:
+- Ladeadresse `0x80039F28`, belegt durch den Lader-Code der Boot-EXE (Check `words`)
+- gebunden an den SHA-256 des Datentracks
+- `generate` baut daraus `generated/overlays_static*.c`, die `CMakeLists.txt` linkt es über `GAME_OVERLAY_STATIC_C`
+
+Bei einer anderen Disc bricht die Pipeline mit „not applicable“ ab. Prüfen ohne Build:
+
+```powershell
+py -3 psxrecomp\tools\aot_overlay_pipeline.py extract --profile aot\overlays.json --game-toml game.toml --recompiler build-recompiler\psxrecomp-game.exe --work-dir D:\RecompDev\Temp\aot-work
+```
+
+## RAM-Werte finden (`tools/ramdiff.py`)
+
+1. Pro bekanntem Spielzustand einen RAM-Abzug machen (`read_ram 0x80000000 0x200000`).
+2. Die Byte-Stellen suchen, deren Werte der erwarteten Folge entsprechen:
+
+```powershell
+py -3 tools/ramdiff.py --snapshots s0.bin s1.bin s2.bin --expected 0 1 2
+```
+
+So wurde der Zeiger auf den aktuellen Menüeintrag gefunden (`moh.MENU_ITEM_PTR_ADDR`). Steckt der Wert nicht als Byte im Speicher, sondern z. B. als Zeiger, muss man nach arithmetischen Folgen suchen (Schrittweite ≠ 1).
 
 ## Debug-Port
 
 Nur im Dev-Build. Pro TCP-Verbindung geht genau eine JSON-Zeile hin und eine zurück, z. B. `{"id":1,"cmd":"ping"}`. Python-Client: `tests/smoke/psxdbg.py` (`send(cmd, port=4370, **params)`).
+
+Fallstricke:
+- `ping` beantwortet ein I/O-Thread ohne Bildzähler. Die Bildnummer liefert `frame`.
+- `audio_wav` mit `start < 0` liefert die ältesten Samples. Für die jüngsten muss man `start = audio_stats.taps[i].frames - count` übergeben.
+- `mdec_state.decode_macroblocks` gilt pro Bild. Fortlaufend zählt `dma_in_words`.
 
 ## Was nie ins Repo gehört
 

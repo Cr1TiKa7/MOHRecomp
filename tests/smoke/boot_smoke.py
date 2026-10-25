@@ -24,6 +24,7 @@ import psxrun  # noqa: E402
 REPO_ROOT = os.path.normpath(os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", ".."))
 MIN_COLORS = 16
 SHOT_EVERY_SECS = 2.0
+MEMCARD_BYTES = 131072  # 128 KiB PS1 memory card image
 
 SmokeFailure = psxrun.SmokeFailure
 TRANSIENT = psxrun.TRANSIENT
@@ -33,6 +34,18 @@ _wait_for_ping = psxrun.wait_for_ping
 def _fail(msg):
     print(f"boot_smoke: FAIL: {msg}", file=sys.stderr)
     return 1
+
+
+def check_memcard(path):
+    """The runtime created a formatted 128 KiB card image at path."""
+    if not os.path.isfile(path):
+        raise SmokeFailure(f"memory card missing: {path}")
+    size = os.path.getsize(path)
+    if size != MEMCARD_BYTES:
+        raise SmokeFailure(f"memory card size {size}, expected {MEMCARD_BYTES}: {path}")
+    with open(path, "rb") as fh:
+        if fh.read(2) != b"MC":
+            raise SmokeFailure(f"memory card not formatted (no MC header): {path}")
 
 
 def _check_frames_advance(port, deadline):
@@ -101,7 +114,8 @@ def main(argv=None):
         print(f"boot_smoke: first ping {first}")
         later = _check_frames_advance(args.port, deadline)
         shot, reply = _wait_for_real_frame(proc, args.port, out_dir, deadline)
-        print(f"boot_smoke: OK frame={later['frame']} "
+        check_memcard(os.path.join(out_dir, "memcards", "card1.mcd"))
+        print(f"boot_smoke: OK frame={later['frame']} memcard=ok "
               f"shot={shot} size={reply.get('width')}x{reply.get('height')}")
         return 0
     except SmokeFailure as exc:
