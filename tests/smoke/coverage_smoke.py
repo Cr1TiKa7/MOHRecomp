@@ -22,16 +22,13 @@ import time
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
-import menu_smoke  # noqa: E402
-import moh  # noqa: E402
+import flows  # noqa: E402
 import psxdbg  # noqa: E402
 import psxrun  # noqa: E402
 
 REPO_ROOT = os.path.normpath(os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", ".."))
 GAME_ID = "SLES-02470"
 NEW_GAME_WAIT_SECS = 15.0
-LEVEL_LOAD_SECS = 120.0   # FMVs + briefing + loading took ~40 s with X every 3 s
-NUDGE_SECS = 3.0
 SmokeFailure = psxrun.SmokeFailure
 
 
@@ -63,29 +60,8 @@ def validate_loader(status):
                            f"dispatch_native={status.get('dispatch_native')}) - stale cache?")
 
 
-def advance_until_level(port, deadline, nudge_secs=NUDGE_SECS):
-    """Press X through the post-NEW GAME FMVs and briefing until LEVEL.BIN is in place."""
-    last = None
-    while time.monotonic() < deadline:
-        try:
-            last = psxrun.read_u32(port, moh.SHELL_LOAD_ADDR)
-            if last == moh.LEVEL_FILE_ID:
-                return
-            psxrun.press(port, "cross")
-        except psxrun.TRANSIENT:
-            pass
-        time.sleep(nudge_secs)
-    seen = "unreadable" if last is None else f"0x{last:08X}"
-    raise SmokeFailure(f"LEVEL.BIN never replaced SHELL.BIN at 0x{moh.SHELL_LOAD_ADDR:08X} "
-                       f"(overlay word {seen})")
-
-
 def check_coverage(proc, port, deadline, max_interp):
-    psxrun.wait_for_ping(proc, port, deadline)
-    psxdbg.send("turbo", port=port, enabled=1)
-    psxrun.wait_frame(port, moh.MENU_READY_FRAME, deadline)
-    psxdbg.send("turbo", port=port, enabled=0)
-    base, _ = menu_smoke.walk_ring(port, deadline)
+    base = flows.boot_to_menu(proc, port, deadline)
 
     static = psxdbg.send("overlay_static_entries", port=port)
     static_hits = int(static.get("total_hits", 0)) if static.get("ok") else 0
@@ -99,10 +75,8 @@ def check_coverage(proc, port, deadline, max_interp):
     # RAM) after two FMVs and a three-page briefing that waits for X. The
     # static SHELL code must not misfire on it (byte guards). Wait for the swap
     # first, so a swallowed X or a stuck load cannot pass as "frames advance".
-    menu_smoke.goto(port, moh.MENU_RING.index("NEW GAME"), base, deadline)
-    psxrun.press(port, "cross")
     try:
-        advance_until_level(port, min(deadline, time.monotonic() + LEVEL_LOAD_SECS))
+        flows.start_new_game(port, base, deadline)
     except SmokeFailure as exc:
         raise SmokeFailure(f"{exc}; {summary}") from exc
     _, before = psxrun.read_frame(port, deadline)

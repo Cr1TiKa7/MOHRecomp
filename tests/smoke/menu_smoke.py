@@ -14,86 +14,33 @@ read from RAM (moh.MENU_ITEM_PTR_ADDR). Exit 0/1, one-line reason on stderr.
 
 import argparse
 import os
-import struct
 import sys
 import time
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
+import flows  # noqa: E402
 import moh  # noqa: E402
 import pngcheck  # noqa: E402
 import psxdbg  # noqa: E402
 import psxrun  # noqa: E402
 
 REPO_ROOT = os.path.normpath(os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", ".."))
-STEP_SECS = 1.5
-ACTIVATION_TRIES = 10
 OPTIONS_INDEX = moh.MENU_RING.index("OPTIONS")
 RETURN_INDEX = moh.MENU_RING.index("NEW GAME")
 SCREEN_CHANGED = 20.0
 SmokeFailure = psxrun.SmokeFailure
 
+# Menu navigation lives in flows; kept here under the names other tests use.
+entry_ptr = flows.entry_ptr
+menu_index = flows.menu_index
+walk_ring = flows.walk_ring
+goto = flows.goto
+
 
 def _fail(msg):
     print(f"menu_smoke: FAIL: {msg}", file=sys.stderr)
     return 1
-
-
-def entry_ptr(port):
-    return struct.unpack("<I", psxrun.read_bytes(port, moh.MENU_ITEM_PTR_ADDR, 4))[0]
-
-
-def menu_index(port, base):
-    return moh.menu_index_from_ptr(entry_ptr(port), base)
-
-
-def _step_right(port):
-    psxrun.press(port, "right")
-    time.sleep(STEP_SECS)
-    return entry_ptr(port)
-
-
-def walk_ring(port, deadline):
-    """Wait until RIGHT moves the ring, walk it once.
-
-    Returns (base, index): the entry-array base learned from the walk (lowest
-    pointer = NEW GAME) and the index the ring ended on.
-    """
-    ring = len(moh.MENU_RING)
-    start = None
-    for _ in range(ACTIVATION_TRIES):
-        if time.monotonic() > deadline:
-            break
-        before = entry_ptr(port)
-        after = _step_right(port)
-        if moh.is_ring_step(before, after):
-            start = after
-            break
-    if start is None:
-        raise SmokeFailure(f"menu never reacted to RIGHT within {ACTIVATION_TRIES} tries")
-    seen = {start}
-    ptr = start
-    for _ in range(ring):
-        nxt = _step_right(port)
-        if not moh.is_ring_step(ptr, nxt):
-            raise SmokeFailure(f"RIGHT moved the entry pointer {ptr:#010x} -> {nxt:#010x}")
-        seen.add(nxt)
-        ptr = nxt
-    if ptr != start or len(seen) != ring:
-        raise SmokeFailure(f"ring did not cycle through {ring} entries back to the start")
-    base = min(seen)
-    return base, moh.menu_index_from_ptr(ptr, base)
-
-
-def goto(port, index, base, deadline):
-    for _ in range(len(moh.MENU_RING)):
-        if menu_index(port, base) == index:
-            return
-        if time.monotonic() > deadline:
-            break
-        _step_right(port)
-    if menu_index(port, base) != index:
-        raise SmokeFailure(f"could not reach menu entry {index}")
 
 
 def check_memcard_probed(sio):
@@ -116,11 +63,7 @@ def _screen_changed(a, b):
 
 
 def check_menu(proc, port, out_dir, deadline):
-    psxrun.wait_for_ping(proc, port, deadline)
-    psxdbg.send("turbo", port=port, enabled=1)
-    psxrun.wait_frame(port, moh.MENU_READY_FRAME, deadline)
-    psxdbg.send("turbo", port=port, enabled=0)
-    base, _ = walk_ring(port, deadline)
+    base = flows.boot_to_menu(proc, port, deadline)
     check_memcard_probed(psxdbg.send("sio_state", port=port))
     goto(port, OPTIONS_INDEX, base, deadline)
     menu_png = _shot(port, out_dir, "menu.png")
