@@ -298,3 +298,12 @@
 0x80037BA4
 0x80037D4C
 0x80037E08
+# Boot-EXE functions that only the overlays call (jal from the SHELL/LEVEL/
+# LEVEL2P static shards). Without an entry they ran interpreted on every call;
+# 0x8001535C (stack switch: v0 = sp, sp = a0) runs every frame in split screen
+# and was ~0.5-0.9 % of all overlay dispatches there (M3, 2026-10-26).
+0x8001535C
+0x8001BAA0
+0x8001BE48
+0x8001C708
+0x8001F73C
