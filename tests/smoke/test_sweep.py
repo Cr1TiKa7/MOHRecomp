@@ -1,5 +1,7 @@
 """Unit tests for sweep_smoke's level loop (no game needed)."""
 
+import contextlib
+import io
 import os
 import sys
 import unittest
@@ -23,7 +25,9 @@ class RunAllTests(unittest.TestCase):
                 raise RuntimeError("socket died")
             return "interp=0.0010"
 
-        lines, failures = sweep_smoke.run_all(levels, check)
+        with contextlib.redirect_stdout(io.StringIO()) as out:
+            lines, failures = sweep_smoke.run_all(levels, check)
+        self.assertEqual(out.getvalue().splitlines(), lines[:3])   # streamed as each level ends
         self.assertEqual(failures, 2)
         self.assertEqual(lines[0], "M1L1: OK interp=0.0010")
         self.assertEqual(lines[1], "M1L2: FAIL level stalled")

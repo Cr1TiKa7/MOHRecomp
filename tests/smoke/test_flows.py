@@ -238,24 +238,31 @@ class WalkRingSizeTests(unittest.TestCase):
 class StartLevelTests(unittest.TestCase):
     """Level jump: write 0-based indexes into the persistent game state after NEW GAME."""
 
-    def test_start_level_writes_zero_based_indexes(self):
-        from unittest import mock
-        import moh
+    BASE = 0x801A93D8
 
+    def _game(self, reset_on_load=False):
+        """Fake game: NEW GAME selected, LEVEL.BIN in place, frames advance per request.
+
+        reset_on_load: the game zeroes the state cells while loading (jump lost).
+        """
         ram = {moh.STATE_MISSION_ADDR: 0, moh.STATE_LEVEL_ADDR: 0}
-        base = 0x801A93D8
+        frames = iter(range(1000, 100000, 50))
 
         def reply(request):
             cmd = request["cmd"]
+            if cmd == "frame":
+                return {"id": 1, "ok": True, "frame": next(frames)}
             if cmd == "write_ram":
                 ram[int(request["addr"], 16)] = request["val"]
                 return {"id": 1, "ok": True}
             if cmd == "read_ram":
                 addr, n = int(request["addr"], 16), request["len"]
                 if addr == moh.MENU_ITEM_PTR_ADDR:
-                    value = base                                   # NEW GAME selected
+                    value = self.BASE                              # NEW GAME selected
                 elif addr == moh.SHELL_LOAD_ADDR:
                     value = moh.LEVEL_FILE_ID                      # LEVEL.BIN already there
+                    if reset_on_load:
+                        ram.update({moh.STATE_MISSION_ADDR: 0, moh.STATE_LEVEL_ADDR: 0})
                 else:
                     value = ram.get(addr, 0)
                 return {"id": 1, "ok": True, "hex": value.to_bytes(4, "little")[:n].hex()}
@@ -264,14 +271,29 @@ class StartLevelTests(unittest.TestCase):
             return {"id": 1, "ok": True}
 
         srv = FakeServer(reply)
-        try:
-            with mock.patch.object(flows, "NEW_GAME_SETTLE_SECS", 0):
-                mark = flows.start_level(srv.port, base, 2, 1, time.monotonic() + 10)
-        finally:
-            srv.close()
+        self.addCleanup(srv.close)
+        return srv
+
+    def test_start_level_writes_zero_based_indexes(self):
+        srv = self._game()
+        mark = flows.start_level(srv.port, self.BASE, 2, 1, time.monotonic() + 10)
         writes = [(r["addr"], r["val"]) for r in srv.seen if r["cmd"] == "write_ram"]
         self.assertEqual(writes, [("0x800387F8", 1), ("0x800387FC", 0)])
         self.assertEqual(mark, 77)
+
+    def test_settle_waits_for_guest_frames(self):
+        # The game resets its state on guest frames; a slow guest must not shorten the wait.
+        srv = self._game()
+        flows.start_level(srv.port, self.BASE, 2, 1, time.monotonic() + 10)
+        cmds = [r["cmd"] for r in srv.seen]
+        first_write = cmds.index("write_ram")
+        frame_reads = cmds[:first_write].count("frame")
+        self.assertGreaterEqual(frame_reads * 50, flows.NEW_GAME_SETTLE_FRAMES)
+
+    def test_jump_lost_during_load_fails(self):
+        srv = self._game(reset_on_load=True)
+        with self.assertRaisesRegex(psxrun.SmokeFailure, "M1L1 instead of M3L2"):
+            flows.start_level(srv.port, self.BASE, 3, 2, time.monotonic() + 10)
 
 
 class CdReadsTests(unittest.TestCase):

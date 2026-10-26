@@ -35,6 +35,7 @@ BRIEFING_SECS = 30.0
 SUBMENUS = ("OPTIONS", "WAR RECORDS", "GALLERY")
 SmokeFailure = psxrun.SmokeFailure
 KEYS = ("native", "static", "interp", "insns")
+PHASES = ("videos", "menus", "levels")
 
 
 def accumulate(segments):
@@ -50,6 +51,19 @@ def accumulate(segments):
 def share(delta):
     total = delta["native"] + delta["static"] + delta["interp"]
     return delta["interp"] / total if total else 1.0
+
+
+def report(totals, phases):
+    """Print one line per phase; returns the phases at or over MAX_SHARE."""
+    over = []
+    for phase in phases:
+        delta = totals.get(phase, {k: 0 for k in KEYS})
+        s = share(delta)
+        print(f"coverage_long: {phase}: interp={s:.4f} insns={delta['insns']} "
+              f"dispatches={delta['native'] + delta['static'] + delta['interp']}", flush=True)
+        if s >= MAX_SHARE:
+            over.append(phase)
+    return over
 
 
 def _launch(args, out_dir):
@@ -107,8 +121,10 @@ def levels(args, out_root, window, segments):
         try:
             deadline = time.monotonic() + per_level + 600
             base = flows.boot_to_menu(proc, args.port, deadline)
-            flows.start_level(args.port, base, mission, level, deadline)
+            mark = flows.start_level(args.port, base, mission, level, deadline)
             flows.wait_until_in_level(args.port, out_dir, min(deadline, time.monotonic() + 120))
+            if not flows.cd_reads_in(args.port, mark, moh.level_lbas(mission, level)):
+                raise SmokeFailure(f"no reads of M{mission}L{level} data: the level jump did not take")
             c0 = flows.overlay_counters(args.port)
             flows.input_loop(proc, args.port, out_dir, per_level, deadline, shot_every=60)
             segments.append(("levels", c0, flows.overlay_counters(args.port)))
@@ -138,27 +154,21 @@ def main(argv=None):
         return 1
     out_root = os.path.abspath(args.out or os.path.join(
         os.environ.get("TEMP", REPO_ROOT), "coverage-long-" + time.strftime("%Y%m%d-%H%M%S")))
+    if not out_root.isascii():
+        print(f"coverage_long: FAIL: out dir must be an ASCII path: {out_root}", file=sys.stderr)
+        return 1
     print(f"coverage_long: out={out_root}", flush=True)
     window = args.minutes * 60.0
     segments = []
     try:
         videos_and_menus(args, out_root, window, segments)
         levels(args, out_root, window, segments)
-    except SmokeFailure as exc:
-        print(f"coverage_long: FAIL: {exc}", file=sys.stderr)
-        return 1
     except Exception as exc:  # noqa: BLE001 - keep the one-line contract
-        print(f"coverage_long: FAIL: unexpected error: {type(exc).__name__}: {exc}", file=sys.stderr)
+        report(accumulate(segments), PHASES[:len({p for p, _, _ in segments})])
+        reason = str(exc) if isinstance(exc, SmokeFailure) else f"unexpected error: {type(exc).__name__}: {exc}"
+        print(f"coverage_long: FAIL: {reason}", file=sys.stderr)
         return 1
-    totals = accumulate(segments)
-    over = []
-    for phase in ("videos", "menus", "levels"):
-        delta = totals.get(phase, {k: 0 for k in KEYS})
-        s = share(delta)
-        print(f"coverage_long: {phase}: interp={s:.4f} insns={delta['insns']} "
-              f"dispatches={delta['native'] + delta['static'] + delta['interp']}")
-        if s >= MAX_SHARE:
-            over.append(phase)
+    over = report(accumulate(segments), PHASES)
     if over:
         print(f"coverage_long: FAIL: interpreted share >= {MAX_SHARE} in {', '.join(over)}", file=sys.stderr)
         return 1

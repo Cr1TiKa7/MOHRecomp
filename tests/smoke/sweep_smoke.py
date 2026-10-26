@@ -71,6 +71,11 @@ def check_level(proc, port, out_dir, mission, level, deadline):
     after = flows.overlay_counters(port)
     flows.shot(port, out_dir, f"M{mission}L{level}.png")
 
+    word = psxrun.read_u32(port, moh.SHELL_LOAD_ADDR)
+    if word != moh.LEVEL_FILE_ID:
+        raise SmokeFailure(f"left the level during the loop (overlay word 0x{word:08X})")
+    if len(shots) < 2:
+        raise SmokeFailure(f"input loop ended after {len(shots)} screenshot(s): no freeze check possible")
     own = flows.cd_reads_in(port, mark, lbas)
     if not own:
         raise SmokeFailure(f"no reads of M{mission}L{level} data (LBA {lbas[0]}-{lbas[1]})")

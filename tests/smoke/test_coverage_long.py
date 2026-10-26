@@ -1,8 +1,12 @@
 """Unit tests for coverage_long's per-phase accumulation (no game needed)."""
 
+import contextlib
+import io
 import os
 import sys
+import tempfile
 import unittest
+from unittest import mock
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
@@ -29,6 +33,33 @@ class AccumulateTests(unittest.TestCase):
 
     def test_empty_phase_counts_as_fully_interpreted(self):
         self.assertEqual(coverage_long.share(c(0, 0, 0, 0)), 1.0)
+
+
+class FailureReportTests(unittest.TestCase):
+    """A failure late in the ~35 min run must not throw away the phases already measured."""
+
+    def test_finished_phases_printed_before_fail(self):
+        def videos_and_menus(args, out_root, window, segments):
+            segments.append(("videos", c(0, 0, 0, 0), c(0, 990, 1, 5)))
+            segments.append(("menus", c(0, 0, 0, 0), c(0, 500, 2, 7)))
+
+        def levels(args, out_root, window, segments):
+            raise coverage_long.SmokeFailure("no reads of M3L1 data")
+
+        with tempfile.TemporaryDirectory() as tmp, \
+                mock.patch.object(coverage_long.psxdbg, "port_in_use", return_value=False), \
+                mock.patch.object(coverage_long, "videos_and_menus", videos_and_menus), \
+                mock.patch.object(coverage_long, "levels", levels), \
+                contextlib.redirect_stdout(io.StringIO()) as out, \
+                contextlib.redirect_stderr(io.StringIO()) as err:
+            exe = os.path.join(tmp, "game.exe")
+            open(exe, "wb").close()
+            code = coverage_long.main(["--exe", exe, "--cue", "x.cue", "--out", os.path.join(tmp, "o")])
+        self.assertEqual(code, 1)
+        self.assertIn("coverage_long: videos: interp=0.0010", out.getvalue())
+        self.assertIn("coverage_long: menus: interp=0.0040", out.getvalue())
+        self.assertNotIn("levels:", out.getvalue())
+        self.assertIn("FAIL: no reads of M3L1 data", err.getvalue())
 
 
 if __name__ == "__main__":

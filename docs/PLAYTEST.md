@@ -20,7 +20,7 @@ Die Nummern sind die Ordner auf der Disc (`DATA\MSN<m>\LVL<l>`). Im Spiel heiße
 
 | Level | Gespielt | Abschluss | Auffälligkeiten |
 |---|---|---|---|
-| MSN1 LVL1 | 2026-10-26 | ja | |
+| MSN1 LVL1 | 2026-10-26 | ja | gespielt im M2-Build (vor Splitscreen-Umbau und Seeds) |
 | MSN1 LVL2 | | | |
 | MSN1 LVL3 | | | |
 | MSN2 LVL1 | | | |
@@ -60,7 +60,7 @@ Ergebnis: ______
 ## Wenn etwas schiefgeht
 
 1. Mission und Level notieren und kurz beschreiben, was passiert ist und was du davor gemacht hast.
-2. Wenn möglich direkt vor der Stelle speichern und `saves\card1.mcd` nach `D:\RecompDev\fixtures\` kopieren. Den Namen so wählen, dass das Level drinsteht, z. B. `moh-msn3-lvl2-vor-absturz.mcd`.
+2. Das Spiel speichert nur zwischen den Levels. Kopiere deshalb den letzten Spielstand vor dem betroffenen Level (`saves\card1.mcd`) nach `D:\RecompDev\fixtures\`. Den Namen so wählen, dass das Level drinsteht, z. B. `moh-vor-msn3-lvl2.mcd`. Dazu die Stelle im Level beschreiben, an der es passiert.
 3. Die Karte bleibt lokal und kommt nie ins Repo.
 
 Jedes gefundene Problem wird eine eigene Aufgabe. Es wird erst die Ursache gesucht und dann repariert.

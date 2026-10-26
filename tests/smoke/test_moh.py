@@ -54,7 +54,7 @@ class RingStepTests(unittest.TestCase):
 class LevelTableTests(unittest.TestCase):
     def test_levels_table_has_24_entries_without_overlap(self):
         self.assertEqual(len(moh.LEVELS), 24)
-        ranges = sorted(r for _m, _l, r in moh.LEVELS)
+        ranges = sorted(r for _m, _l, r in moh.LEVELS + moh.BONUS_LEVELS)
         for (lo, hi), (next_lo, _) in zip(ranges, ranges[1:]):
             self.assertLessEqual(lo, hi)
             self.assertLess(hi, next_lo)

@@ -101,7 +101,7 @@ def is_ring_step(before, after, ring_size=len(MENU_RING)):
 
 
 def level_lbas(mission, level):
-    """LBA range of a single-player or bonus level; KeyError if it does not exist."""
+    """LBA range of a single-player level or an MSN12 folder (BONUS_LEVELS); KeyError if it does not exist."""
     for m, l, lbas in LEVELS + BONUS_LEVELS:
         if (m, l) == (mission, level):
             return lbas

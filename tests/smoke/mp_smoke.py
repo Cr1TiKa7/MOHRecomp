@@ -111,6 +111,8 @@ def check_mp(proc, port, out_dir, deadline):
         raise SmokeFailure(f"left the split screen during the loop (overlay word 0x{word:08X})")
     if not pad2_connected(port):
         raise SmokeFailure("pad 2 got unplugged during the loop")
+    if len(shots) < 2:
+        raise SmokeFailure(f"input loop ended after {len(shots)} screenshot(s): no freeze check possible")
     twoplayr = flows.cd_reads_in(port, mark, moh.TWOPLAYR_LBAS)
     if not twoplayr:
         raise SmokeFailure(f"no reads of /DATA/TWOPLAYR/ (LBA {moh.TWOPLAYR_LBAS[0]}-{moh.TWOPLAYR_LBAS[1]})")

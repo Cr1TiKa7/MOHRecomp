@@ -19,7 +19,7 @@ ACTIVATION_TRIES = 10
 MAX_RING = 10
 NUDGE_SECS = 3.0
 LEVEL_LOAD_SECS = 120.0   # FMVs + briefing + loading took ~15-40 s with X every 3 s
-NEW_GAME_SETTLE_SECS = 3.0   # NEW GAME has reset the game state by then (first FMV running)
+NEW_GAME_SETTLE_FRAMES = 150   # 3 s at 50 Hz: NEW GAME has reset the game state by then (first FMV running)
 IN_LEVEL_DIFF = 10.0      # poster vs. poster < 1 (progress bar); poster vs. level 34-104 (M1L2/M1L1)
 
 
@@ -176,16 +176,24 @@ def start_level(port, base, mission, level, deadline):
 
     Returns the cd_read_log mark taken before the level loads, so callers can
     check which level's data was read. The briefing shown is Mission 1's.
+    The settle time counts guest frames, because the game resets its state on
+    its own clock; a slow guest would otherwise overwrite the jump.
     """
     goto(port, moh.MENU_RING.index("NEW GAME"), base, deadline)
     psxrun.press(port, "cross")
-    time.sleep(NEW_GAME_SETTLE_SECS)
-    for addr, value in ((moh.STATE_MISSION_ADDR, mission - 1), (moh.STATE_LEVEL_ADDR, level - 1)):
+    _, frame = psxrun.read_frame(port, deadline)
+    psxrun.wait_frame(port, frame + NEW_GAME_SETTLE_FRAMES, deadline)
+    cells = ((moh.STATE_MISSION_ADDR, mission - 1), (moh.STATE_LEVEL_ADDR, level - 1))
+    for addr, value in cells:
         psxdbg.send("write_ram", port=port, addr="0x%08X" % addr, val=value)
         if psxrun.read_u32(port, addr) != value:
             raise SmokeFailure(f"could not set game state at {addr:#010x} to {value}")
     mark = cd_reads_total(port)
     advance_until_level(port, min(deadline, time.monotonic() + LEVEL_LOAD_SECS))
+    got = [psxrun.read_u32(port, addr) for addr, _ in cells]
+    if got != [value for _, value in cells]:
+        raise SmokeFailure(f"game loaded M{got[0] + 1}L{got[1] + 1} instead of M{mission}L{level}: "
+                           "the jump was overwritten")
     return mark
 
 
@@ -201,6 +209,7 @@ def start_new_game(port, base, deadline):
 # --------------------------------------------------------------------------
 
 LOOP_STEPS = (("up", 2.0), ("right", 1.5), ("left", 0.5), (moh.FIRE_BUTTON, 0.3))
+FRAME_READ_SECS = 10.0
 
 
 def plug_pad2(port, buttons=0xFFFF):
@@ -231,16 +240,18 @@ def hold(port, name, secs, pads=(1,)):
 def input_loop(proc, port, out_dir, secs, deadline, shot_every=10, prefix="loop", pads=(1,)):
     """Walk/turn/fire for secs on the given pads; the game must stay alive and keep counting frames.
 
-    Returns the screenshots taken every shot_every seconds (for freeze checks).
+    Returns the screenshots taken every shot_every seconds (for freeze checks);
+    fewer than two make the freeze check meaningless, which callers must reject.
     """
     end = min(time.monotonic() + secs, deadline)
-    _, last_frame = psxrun.read_frame(port, deadline)
+    _, last_frame = psxrun.read_frame(port, time.monotonic() + FRAME_READ_SECS)
     shots, next_shot, n = [], time.monotonic(), 0
     while time.monotonic() < end:
         for name, secs_held in LOOP_STEPS:
             hold(port, name, secs_held, pads)
         psxrun.check_alive(proc)
-        _, frame = psxrun.read_frame(port, deadline)
+        # Own short deadline: the last round may end past the caller's deadline.
+        _, frame = psxrun.read_frame(port, time.monotonic() + FRAME_READ_SECS)
         if frame <= last_frame:
             raise SmokeFailure(f"level stalled (frame {last_frame} -> {frame})")
         last_frame = frame
