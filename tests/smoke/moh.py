@@ -81,6 +81,41 @@ STATE_LEVEL_ADDR = 0x800387FC     # 0-based level index
 FIRE_BUTTON = "cross"
 M1L1_MAGAZINE_ADDR = 0x800EEC92
 
+# Player view angles (M4, found 2026-10-26 in M1L1 with wtrace/disasm; see
+# docs/DEVELOPMENT.md "Blickwinkel und Zielmodus"). The player struct is
+# *(*(PLAYER_OWNER_PTR_ADDR) + PLAYER_PTR_OFFSET), 0x800EEC2C in M1L1.
+PLAYER_OWNER_PTR_ADDR = 0x8009DC44
+PLAYER_PTR_OFFSET = 0x388
+# Yaw: 16.16 fixed point, upper half = angle with YAW_UNITS_PER_TURN per turn,
+# never wrapped (+4096 << 16 gives the same picture, +1024 << 16 a quarter turn).
+PLAYER_YAW_OFFSET = 0x184
+YAW_UNITS_PER_TURN = 4096
+# LEVEL.BIN's yaw integration: SW $v0, 388($s0) in the delay slot of
+# JAL 0x800762D8, after $v0 = yaw + turn rate. Runs once per game frame
+# (25 Hz), only for the player, and not while the game is paused. SHELL.BIN
+# and LEVEL2P.BIN hold other words at this address.
+YAW_STORE_PC = 0x800801E0
+YAW_STORE_WORD = 0xAE020184
+# Aim mode (R2 held) only. Pitch moves the crosshair: 0 = centre, negative =
+# up, clamped to PITCH_MIN..PITCH_MAX; releasing R2 writes 0 (0x80080028).
+# Pushing on at the limit tilts the camera instead: tilt is 16.16 like yaw,
+# positive = up, clamped to TILT_MIN..TILT_MAX (0xFD560000/0x02AA0000, about
+# 60 degrees) and recentred by the game after release. One rate in $a0 feeds
+# both: pitch += rate >> 3 within the limit, tilt -= rate >> 1 beyond it, so
+# the look angle moves by rate / 2 either way (PITCH_RATE_PER_FIXED = 2).
+PLAYER_PITCH_OFFSET = 0x17C
+PLAYER_TILT_OFFSET = 0x178
+PITCH_MIN = -983040
+PITCH_MAX = 983040
+TILT_MIN = -44695552
+TILT_MAX = 44695552
+PITCH_RATE_PER_FIXED = 2
+# LW $v0, 380($s0) right after the rate is loaded into $a0 (LW $a0, 16($sp));
+# every aim-mode frame, with or without pad input.
+PITCH_RATE_PC = 0x8007FE80
+PITCH_RATE_WORD = 0x8E02017C
+PITCH_RATE_REG = 4
+
 
 def menu_index_from_ptr(ptr, base, ring_size=len(MENU_RING)):
     """Ring index for a current-entry pointer, or None if it is not one."""

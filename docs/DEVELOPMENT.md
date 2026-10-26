@@ -108,6 +108,33 @@ MULTIPLAYER öffnet einen eigenen Raum, START GAME ist vorgewählt. Ohne Control
 - Spieler 2 auf der Tastatur ist nicht vorgesehen: `[player2]` in `keybinds.ini` belegt Tasten, die Spieler 1 mit WASD schon nutzt.
 - Tests: `set_input`/`press` mit `payload={"port": 2, "connected": 1}` steckt einen digitalen Controller ein, solange der Test ihn treibt (`flows.plug_pad2`, `flows.hold`).
 
+## Blickwinkel und Zielmodus
+
+Gefunden in Mission 1 Level 1 (M4, 2026-10-26) mit `wtrace_*` und `disasm`. Die Konstanten stehen in `tests/smoke/moh.py` und `src/mouse/moh_addrs.h`.
+
+- **Spieler-Struct:** `*(*(0x8009DC44) + 0x388)`, in M1L1 `0x800EEC2C`.
+- **Gier:** Spieler + 0x184, 16.16-Festkomma, 4096 Winkeleinheiten pro Umdrehung, ohne Umbruch.
+  - Geschrieben wird sie einmal pro Spiel-Frame bei `0x800801E0` (`SW $v0, 388($s0)`, Gier += Drehrate).
+  - Die Stelle schreibt nur die Gier des Spielers. In der Pause läuft sie nicht.
+- **Zielmodus** (R2 halten): Fadenkreuz erscheint, Steuerkreuz hoch/runter zielt, die Figur läuft nicht. R2 loslassen setzt das Fadenkreuz zurück, die Kamera schwenkt langsam zurück.
+  - **Fadenkreuz:** Spieler + 0x17C, 0 = Mitte, negativ = oben, Grenzen ±983 040.
+  - **Kamera-Neigung:** Spieler + 0x178, 16.16, positiv = oben, Grenzen ±0x02AA0000 (etwa 60°).
+  - Beides speist eine Rate in `$a0` (`0x8007FE80`): Innerhalb der Grenze wandert das Fadenkreuz (+ Rate >> 3), am Rand kippt die Kamera (− Rate >> 1). Der Blickwinkel ändert sich in beiden Fällen um Rate / 2.
+- **Außerhalb des Zielmodus** gibt es keinen Nickwinkel. Vertikal zielt das Spiel selbst, wenn EASY AIM an ist (Options → Controller).
+
+| PS1-Taste (Belegung 1) | Wirkung im Level |
+|---|---|
+| Steuerkreuz hoch/runter | laufen |
+| Steuerkreuz links/rechts | drehen |
+| L1 / R1 | Seitschritt links / rechts |
+| X | schießen |
+| R2 (halten) | Zielmodus |
+| L2 | ducken / aufstehen |
+| Kreis | Waffe wechseln |
+| Dreieck (halten) | Blick nach oben, beim Loslassen zurück |
+| Quadrat, Select | ohne sichtbare Wirkung im Test |
+| Start | Pause |
+
 ## RAM-Werte finden (`tools/ramdiff.py`)
 
 1. Pro bekanntem Spielzustand einen RAM-Abzug machen (`read_ram 0x80000000 0x200000`).
