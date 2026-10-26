@@ -312,11 +312,15 @@ def game_ram_hits(port, needle):
 # interprets exactly those words by design (psxrecomp/docs/
 # dynamic_handler_install.md); they are kernel code, not overlay code, so the
 # overlay share leaves their interpreted entries out (verified 2026-10-26: in
-# the main menu they were 5199 of 5205 interpreted dispatches).
+# the main menu they were 5199 of 5205 interpreted dispatches). That is only
+# sound while every slot entry is also an interpreted overlay dispatch (the
+# dirty-RAM interpreter asks the overlay loader first, which counts the miss),
+# so delta_share fails instead of subtracting when the two are not nested.
+SLOT_SKEW = 64   # entries the slot rows may run ahead: they are read after overlay_loader_status
 
 @functools.lru_cache(maxsize=None)
 def install_slots(image_id, profile_dir=BIOS_PROFILES):
-    """[lo, hi) kernel-RAM install slots the BIOS profile with [program] id == image_id declares.
+    """((lo, hi), ...) kernel-RAM install slots the BIOS profile with [program] id == image_id declares.
 
     No matching profile means no slots: nothing is left out of the share.
     """
@@ -327,8 +331,8 @@ def install_slots(image_id, profile_dir=BIOS_PROFILES):
             profile = tomllib.load(f)
         if profile.get("program", {}).get("id") == image_id:
             slots = profile.get("recompiler", {}).get("install_slots", [])
-            return [(int(s["ram_addr"], 16), int(s["ram_addr"], 16) + int(s["len"], 16)) for s in slots]
-    return []
+            return tuple((int(s["ram_addr"], 16), int(s["ram_addr"], 16) + int(s["len"], 16)) for s in slots)
+    return ()
 
 
 def slot_entries(port, slots):
@@ -359,7 +363,11 @@ def overlay_counters(port):
 
 def delta_share(delta):
     """Interpreted share of the overlay dispatches in a counter delta, install-slot entries left out."""
-    interp = max(0, delta["interp"] - delta.get("slot", 0))
+    slot = delta.get("slot", 0)
+    if slot > delta["interp"] + max(SLOT_SKEW, slot // 1000):
+        raise SmokeFailure(f"{slot} install-slot entries but only {delta['interp']} interpreted "
+                           "dispatches: the runtime counters are no longer nested")
+    interp = max(0, delta["interp"] - slot)
     total = delta["native"] + delta["static"] + interp
     return interp / total if total else 1.0
 

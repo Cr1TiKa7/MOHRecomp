@@ -77,10 +77,11 @@ def play_briefing(port, base, deadline):
     briefing = flows.entry_ptr(port)
     samples = [mdec_words(port)]
     psxrun.press(port, "cross")
-    end = min(deadline, time.monotonic() + BRIEFING_MAX_SECS)
+    start = time.monotonic()
+    end = min(deadline, start + BRIEFING_MAX_SECS)
     while flows.entry_ptr(port) == briefing:
         if time.monotonic() > end:
-            raise SmokeFailure(f"BRIEFING did not return to the main menu within {BRIEFING_MAX_SECS:.0f} s")
+            raise SmokeFailure(f"BRIEFING did not return to the main menu within {time.monotonic() - start:.0f} s")
         time.sleep(BRIEFING_POLL_SECS)
         samples.append(mdec_words(port))
     words = film_words(samples)
@@ -90,13 +91,21 @@ def play_briefing(port, base, deadline):
 
 
 def report(totals, phases):
-    """Print one line per phase; returns the phases at or over MAX_SHARE."""
+    """Print one line per phase; returns the phases at or over MAX_SHARE or not measurable.
+
+    share = (interp_n - slot) / (dispatches - slot).
+    """
     over = []
     for phase in phases:
         delta = totals.get(phase, {k: 0 for k in KEYS})
-        s = share(delta)
-        print(f"coverage_long: {phase}: interp={s:.4f} slot={delta['slot']} insns={delta['insns']} "
-              f"dispatches={delta['native'] + delta['static'] + delta['interp']}", flush=True)
+        try:
+            s = share(delta)
+            text, note = f"{s:.4f}", ""
+        except SmokeFailure as exc:
+            s, text, note = 1.0, "n/a", f" ({exc})"
+        print(f"coverage_long: {phase}: interp={text} interp_n={delta['interp']} slot={delta['slot']} "
+              f"insns={delta['insns']} dispatches={delta['native'] + delta['static'] + delta['interp']}{note}",
+              flush=True)
         if s >= MAX_SHARE:
             over.append(phase)
     return over
@@ -207,7 +216,8 @@ def main(argv=None):
         return 1
     over = report(accumulate(segments), PHASES)
     if over:
-        print(f"coverage_long: FAIL: interpreted share >= {MAX_SHARE} in {', '.join(over)}", file=sys.stderr)
+        print(f"coverage_long: FAIL: interpreted share >= {MAX_SHARE} or not measurable in {', '.join(over)}",
+              file=sys.stderr)
         return 1
     print("coverage_long: OK")
     return 0

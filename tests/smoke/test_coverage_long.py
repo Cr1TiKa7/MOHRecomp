@@ -47,7 +47,16 @@ class AccumulateTests(unittest.TestCase):
         with contextlib.redirect_stdout(io.StringIO()) as out:
             over = coverage_long.report({"menus": c(0, 990, 510, 0, 500)}, ("menus",))
         self.assertEqual(over, ["menus"])
-        self.assertIn("coverage_long: menus: interp=0.0100 slot=500", out.getvalue())
+        self.assertIn("coverage_long: menus: interp=0.0100 interp_n=510 slot=500", out.getvalue())
+
+    def test_phase_with_slot_entries_outside_interp_fails(self):
+        with contextlib.redirect_stdout(io.StringIO()) as out:
+            over = coverage_long.report({"menus": c(0, 990, 10, 0, 500), "levels": c(0, 990, 0, 0, 0)},
+                                        ("menus", "levels"))
+        self.assertEqual(over, ["menus"])
+        self.assertIn("coverage_long: menus: interp=n/a", out.getvalue())
+        self.assertIn("no longer nested", out.getvalue())
+        self.assertIn("coverage_long: levels: interp=0.0000", out.getvalue())
 
 
 class FilmTests(unittest.TestCase):
@@ -105,7 +114,7 @@ class FilmTests(unittest.TestCase):
 
 
 class FailureReportTests(unittest.TestCase):
-    """A failure late in the ~35 min run must not throw away the phases already measured."""
+    """A failure late in the ~45 min run must not throw away the phases already measured."""
 
     def test_finished_phases_printed_before_fail(self):
         def videos_and_menus(args, out_root, window, segments):

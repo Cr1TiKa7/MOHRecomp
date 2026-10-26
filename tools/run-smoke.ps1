@@ -5,7 +5,7 @@
 # skipped with a hint when the fixture is missing and is not part of 'all'.
 # 'sweep' jumps into every single-player level (~3 min each; -Mission N limits it,
 # -Bonus sweeps the MSN12 folders instead, most likely the multiplayer arenas); it is not part of 'all'.
-# 'coverage-long' measures ~10 min each of videos, menus and levels (~35 min); not part of 'all'.
+# 'coverage-long' measures ~10 min each of videos, menus and levels (~45 min); not part of 'all'.
 # 'mp' plugs a second pad in over the debug port and plays the split screen (~4 min); not part of 'all'.
 param(
     [ValidateSet('dev', 'release')][string]$Build = 'dev',

@@ -116,17 +116,31 @@ class WindowShareTests(unittest.TestCase):
         after = {"native": 0, "static": 1000, "interp": 500, "insns": 0, "slot": 500}
         self.assertEqual(flows.window_share(before, after), 0.0)
 
+    def test_read_skew_between_counters_is_tolerated(self):
+        # slot rows are read after overlay_loader_status, so they may run a few entries ahead.
+        before = {"native": 0, "static": 0, "interp": 0, "insns": 0, "slot": 0}
+        after = {"native": 0, "static": 46789, "interp": 1723, "insns": 0, "slot": 1728}
+        self.assertEqual(flows.window_share(before, after), 0.0)
+
+    def test_slot_entries_outside_the_interpreted_dispatches_fail(self):
+        # If the runtime stopped counting slot entries in dispatch_interp_fallback,
+        # subtracting them would hide real interpreted overlay code.
+        before = {"native": 0, "static": 0, "interp": 0, "insns": 0, "slot": 0}
+        after = {"native": 0, "static": 248797, "interp": 10, "insns": 0, "slot": 5199}
+        with self.assertRaisesRegex(psxrun.SmokeFailure, "no longer nested"):
+            flows.window_share(before, after)
+
 
 class InstallSlotTests(unittest.TestCase):
     """The BIOS profile declares the kernel-RAM words the game's libapi patches at runtime."""
 
     def test_openbios_slots_from_the_pinned_profile(self):
         self.assertEqual(flows.install_slots("OPENBIOS"),
-                         [(0x27B4, 0x27E4), (0x281C, 0x282C), (0x357C, 0x358C)])
+                         ((0x27B4, 0x27E4), (0x281C, 0x282C), (0x357C, 0x358C)))
 
     def test_unknown_bios_has_no_slots(self):
         # No profile: nothing is left out, so the share can only get stricter.
-        self.assertEqual(flows.install_slots("NO-SUCH-BIOS"), [])
+        self.assertEqual(flows.install_slots("NO-SUCH-BIOS"), ())
 
 
 class OverlayCountersTests(unittest.TestCase):
@@ -173,8 +187,8 @@ class OverlayCountersTests(unittest.TestCase):
             "dirty_ram_stats": {"ok": True, "insns_run": 6872},
             "bios_info": {"ok": True, "image_id": "OPENBIOS"},
         }, slot_rows=[
-            {"pc": "0x0000281C", "hits": 1718, "insns": 5154, "entries": 1718},
-            {"pc": "0x000027B4", "hits": 2, "insns": 24, "entries": 2},
+            {"pc": "0x0000281C", "hits": 1900, "insns": 5154, "entries": 1718},
+            {"pc": "0x000027B4", "hits": 7, "insns": 24, "entries": 2},
             {"pc": "0x80012340", "hits": 30, "insns": 90, "entries": 30},   # not a slot
         ])
         try:
