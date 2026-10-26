@@ -107,6 +107,20 @@ class WaitInLevelTests(unittest.TestCase):
             srv.close()
         self.assertEqual(sum(1 for r in srv.seen if r["cmd"] == "screenshot"), 4)
 
+    def test_dark_poster_and_dark_level_are_told_apart(self):
+        # Level 2: "The Fight Continues!" poster vs. night village differ by ~34,
+        # while the poster itself only changes by <1 (progress bar).
+        import tempfile
+
+        poster, poster_bar, level = (50, 50, 50), (51, 50, 50), (80, 80, 80)
+        srv = self._server([poster, poster_bar, level, level, level])
+        try:
+            with tempfile.TemporaryDirectory() as out:
+                flows.wait_until_in_level(srv.port, out, time.monotonic() + 5, poll_secs=0.01)
+        finally:
+            srv.close()
+        self.assertEqual(sum(1 for r in srv.seen if r["cmd"] == "screenshot"), 4)
+
     def test_gives_up_while_loading_screen_stays(self):
         import tempfile
 
@@ -118,6 +132,73 @@ class WaitInLevelTests(unittest.TestCase):
                 flows.wait_until_in_level(srv.port, out, time.monotonic() + 0.5, poll_secs=0.01)
         finally:
             srv.close()
+
+
+class WalkRingSizeTests(unittest.TestCase):
+    """The ring size is learned: 6 entries on a fresh game, 7 after loading a save."""
+
+    def _ring_server(self, base, size, start):
+        from unittest import mock  # noqa: F401
+        state = {"i": start}
+
+        def reply(request):
+            if request["cmd"] == "press":
+                state["i"] = (state["i"] + 1) % size
+                return {"id": 1, "ok": True}
+            ptr = base + state["i"] * 0x274
+            return {"id": 1, "ok": True, "hex": ptr.to_bytes(4, "little").hex()}
+
+        return FakeServer(reply)
+
+    def _walk(self, size, start):
+        from unittest import mock
+
+        srv = self._ring_server(0x801A93D8, size, start)
+        try:
+            with mock.patch.object(flows, "STEP_SECS", 0):
+                return flows.walk_ring(srv.port, time.monotonic() + 10)
+        finally:
+            srv.close()
+
+    def test_six_entry_ring(self):
+        self.assertEqual(self._walk(6, 2), (0x801A93D8, 3, 6))
+
+    def test_seven_entry_ring(self):
+        self.assertEqual(self._walk(7, 5), (0x801A93D8, 6, 7))
+
+    def test_goto_ptr_reaches_remembered_entry(self):
+        # After loading, NEXT MISSION is the entry selected on return - not the
+        # lowest pointer - so it is found again by its remembered pointer.
+        from unittest import mock
+
+        target = 0x801A93D8 + 5 * 0x274
+        srv = self._ring_server(0x801A93D8, 7, 2)
+        try:
+            with mock.patch.object(flows, "STEP_SECS", 0):
+                flows.goto_ptr(srv.port, target, 7, time.monotonic() + 10)
+                self.assertEqual(flows.entry_ptr(srv.port), target)
+        finally:
+            srv.close()
+        self.assertEqual(sum(1 for r in srv.seen if r["cmd"] == "press"), 3)
+
+
+class CdReadsTests(unittest.TestCase):
+    """cd_read_log logs the start LBA of each read; count only reads since a mark."""
+
+    def test_reads_since_mark_in_range(self):
+        def reply(request):
+            if request.get("lba_lo") is None:
+                return {"id": 1, "ok": True, "total": 130, "count": 1, "entries": []}
+            return {"id": 1, "ok": True, "total": 130, "count": request["tail"],
+                    "entries": [{"lba": 6292, "dest": "0x0", "size": 2048}]}
+
+        srv = FakeServer(reply)
+        try:
+            self.assertEqual(flows.cd_reads_in(srv.port, 100, (6292, 10935)), [6292])
+        finally:
+            srv.close()
+        ranged = [r for r in srv.seen if "lba_lo" in r]
+        self.assertEqual((ranged[0]["tail"], ranged[0]["lba_lo"], ranged[0]["lba_hi"]), (30, 6292, 10935))
 
 
 class RamHitsTests(unittest.TestCase):

@@ -16,9 +16,10 @@ import psxrun
 SmokeFailure = psxrun.SmokeFailure
 STEP_SECS = 1.5
 ACTIVATION_TRIES = 10
+MAX_RING = 10
 NUDGE_SECS = 3.0
 LEVEL_LOAD_SECS = 120.0   # FMVs + briefing + loading took ~15-40 s with X every 3 s
-IN_LEVEL_DIFF = 40.0      # bright loading poster vs. the dark night level of M1L1
+IN_LEVEL_DIFF = 10.0      # poster vs. poster < 1 (progress bar); poster vs. level 34-104 (M1L2/M1L1)
 
 
 # --------------------------------------------------------------------------
@@ -29,8 +30,8 @@ def entry_ptr(port):
     return struct.unpack("<I", psxrun.read_bytes(port, moh.MENU_ITEM_PTR_ADDR, 4))[0]
 
 
-def menu_index(port, base):
-    return moh.menu_index_from_ptr(entry_ptr(port), base)
+def menu_index(port, base, ring_size=len(moh.MENU_RING)):
+    return moh.menu_index_from_ptr(entry_ptr(port), base, ring_size)
 
 
 def _step_right(port):
@@ -40,46 +41,63 @@ def _step_right(port):
 
 
 def walk_ring(port, deadline):
-    """Wait until RIGHT moves the ring, walk it once.
+    """Wait until RIGHT moves the ring, walk it once and learn its size.
 
-    Returns (base, index): the entry-array base learned from the walk (lowest
-    pointer = NEW GAME) and the index the ring ended on.
+    Returns (base, index, size): the entry-array base (lowest pointer = entry
+    0), the index the ring ended on, and the number of entries (6 on a fresh
+    game, 7 after loading a save).
     """
-    ring = len(moh.MENU_RING)
     start = None
     for _ in range(ACTIVATION_TRIES):
         if time.monotonic() > deadline:
             break
         before = entry_ptr(port)
         after = _step_right(port)
-        if moh.is_ring_step(before, after):
+        if moh.is_ring_step(before, after, ring_size=None):
             start = after
             break
     if start is None:
         raise SmokeFailure(f"menu never reacted to RIGHT within {ACTIVATION_TRIES} tries")
-    seen = {start}
+    seen = [start]
     ptr = start
-    for _ in range(ring):
+    for _ in range(MAX_RING):
         nxt = _step_right(port)
-        if not moh.is_ring_step(ptr, nxt):
+        if not moh.is_ring_step(ptr, nxt, ring_size=None):
             raise SmokeFailure(f"RIGHT moved the entry pointer {ptr:#010x} -> {nxt:#010x}")
-        seen.add(nxt)
         ptr = nxt
-    if ptr != start or len(seen) != ring:
-        raise SmokeFailure(f"ring did not cycle through {ring} entries back to the start")
+        if ptr == start:
+            break
+        seen.append(ptr)
+    else:
+        raise SmokeFailure(f"ring did not return to its start within {MAX_RING} steps")
+    size = len(seen)
     base = min(seen)
-    return base, moh.menu_index_from_ptr(ptr, base)
+    if sorted(seen) != [base + i * moh.MENU_ITEM_STRIDE for i in range(size)]:
+        raise SmokeFailure(f"ring entries are not one contiguous array: {[hex(p) for p in seen]}")
+    return base, moh.menu_index_from_ptr(ptr, base, size), size
 
 
-def goto(port, index, base, deadline):
-    for _ in range(len(moh.MENU_RING)):
-        if menu_index(port, base) == index:
+def goto(port, index, base, deadline, ring_size=len(moh.MENU_RING)):
+    for _ in range(ring_size):
+        if menu_index(port, base, ring_size) == index:
             return
         if time.monotonic() > deadline:
             break
         _step_right(port)
-    if menu_index(port, base) != index:
+    if menu_index(port, base, ring_size) != index:
         raise SmokeFailure(f"could not reach menu entry {index}")
+
+
+def goto_ptr(port, ptr, ring_size, deadline):
+    """Press RIGHT until the current-entry pointer equals ptr (at most one lap)."""
+    for _ in range(ring_size):
+        if entry_ptr(port) == ptr:
+            return
+        if time.monotonic() > deadline:
+            break
+        _step_right(port)
+    if entry_ptr(port) != ptr:
+        raise SmokeFailure(f"could not reach menu entry at {ptr:#010x}")
 
 
 def boot_to_menu(proc, port, deadline):
@@ -88,7 +106,9 @@ def boot_to_menu(proc, port, deadline):
     psxdbg.send("turbo", port=port, enabled=1)
     psxrun.wait_frame(port, moh.MENU_READY_FRAME, deadline)
     psxdbg.send("turbo", port=port, enabled=0)
-    base, _ = walk_ring(port, deadline)
+    base, _, size = walk_ring(port, deadline)
+    if size != len(moh.MENU_RING):
+        raise SmokeFailure(f"fresh main menu has {size} entries, expected {len(moh.MENU_RING)}")
     return base
 
 
@@ -155,6 +175,22 @@ def start_new_game(port, base, deadline):
     goto(port, moh.MENU_RING.index("NEW GAME"), base, deadline)
     psxrun.press(port, "cross")
     advance_until_level(port, min(deadline, time.monotonic() + LEVEL_LOAD_SECS))
+
+
+# --------------------------------------------------------------------------
+# CD reads
+# --------------------------------------------------------------------------
+
+def cd_reads_total(port):
+    return int(psxdbg.send("cd_read_log", port=port, tail=1, max_entries=0)["total"])
+
+
+def cd_reads_in(port, since, lba_range, limit=5):
+    """Start LBAs of CD reads after the mark `since` that fall into lba_range."""
+    tail = max(1, cd_reads_total(port) - since)
+    reply = psxdbg.send("cd_read_log", port=port, tail=tail, lba_lo=lba_range[0],
+                        lba_hi=lba_range[1], max_entries=limit)
+    return [entry["lba"] for entry in reply.get("entries", [])]
 
 
 # --------------------------------------------------------------------------

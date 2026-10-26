@@ -2,13 +2,14 @@
 
 Usage (from anywhere):
     py -3 tests/smoke/save_smoke.py --exe PATH --cue PATH --card FIXTURE.mcd
-                                    [--port 4370] [--timeout 300] [--out DIR] [--game game.toml]
+                                    [--port 4370] [--timeout 420] [--out DIR] [--game game.toml]
 
 Copies the fixture card into a fresh output folder (the fixture itself is never
-written), boots into the menu, checks the save's player name is NOT yet in game
-RAM, then loads the save via WAR RECORDS > LOAD GAME and requires the name to
-appear in game RAM, the game to have read the card and to keep running.
-Exit 0/1, one-line reason on stderr.
+written), boots into the menu and loads the save via WAR RECORDS > LOAD GAME
+(the player name appearing in game RAM marks the save list). Back in the ring,
+which then has an extra entry, the preselected NEXT MISSION is started: the game must
+read Mission 1 Level 2's data files and none of Level 1's - a fresh game's
+NEW GAME reads only Level 1. Exit 0/1, one-line reason on stderr.
 """
 
 import argparse
@@ -30,6 +31,9 @@ REPO_ROOT = os.path.normpath(os.path.join(os.path.dirname(os.path.abspath(__file
 OPEN_SECS = 6.0
 CONFIRM_TRIES = 6
 CONFIRM_SECS = 3.0
+LOADED_SECS = 6.0
+BACK_PRESSES = 3
+IN_LEVEL_SECS = 120.0
 SmokeFailure = psxrun.SmokeFailure
 
 
@@ -48,40 +52,54 @@ def _mc_reads(port):
 
 
 def load_save(port, base, needle, deadline):
-    """WAR RECORDS > LOAD GAME, pressing X until the save's name is in game RAM."""
+    """WAR RECORDS > LOAD GAME > the save; returns to the main ring."""
     flows.goto(port, moh.MENU_RING.index("WAR RECORDS"), base, deadline)
     psxrun.press(port, "cross")
     time.sleep(OPEN_SECS)
     for _ in range(moh.LOAD_GAME_RIGHTS):
         psxrun.press(port, "right")
         time.sleep(flows.STEP_SECS)
-    for _ in range(CONFIRM_TRIES):
+    for _ in range(CONFIRM_TRIES):          # "Checking memory card" -> save list
         psxrun.press(port, "cross")
         time.sleep(CONFIRM_SECS)
         if flows.game_ram_hits(port, needle):
-            return
-    raise SmokeFailure(f"save not loaded: {needle.decode()!r} never appeared in game RAM")
+            break
+    else:
+        raise SmokeFailure(f"save list never showed {needle.decode()!r}")
+    psxrun.press(port, "cross")             # select the save: "Loading game" / "Game loaded"
+    time.sleep(LOADED_SECS)
+    for _ in range(BACK_PRESSES):
+        psxrun.press(port, "triangle")
+        time.sleep(CONFIRM_SECS)
 
 
-def check_save(proc, port, name, deadline):
+def check_save(proc, port, name, out_dir, deadline):
     needle = name.encode("ascii")
     base = flows.boot_to_menu(proc, port, deadline)
-    before = flows.game_ram_hits(port, needle)
-    if before:
-        raise SmokeFailure(f"{name!r} already in game RAM before loading ({before[0]:#010x}); "
-                           "the check would prove nothing")
     reads_before = _mc_reads(port)
     load_save(port, base, needle, deadline)
     reads_after = _mc_reads(port)
     if reads_after <= reads_before:
         raise SmokeFailure(f"game did not read the card while loading (mc_reads {reads_before})")
-    _, frame_a = psxrun.read_frame(port, deadline)
-    time.sleep(2.0)
+
+    # Back in the ring the game preselects NEXT MISSION. The rebuilt ring has
+    # 7 entries and NEXT MISSION is not the lowest pointer (NEW GAME stays), so
+    # remember the preselected entry, learn the ring, and return to it.
+    next_mission = flows.entry_ptr(port)
+    _, _, size = flows.walk_ring(port, deadline)
+    flows.goto_ptr(port, next_mission, size, deadline)
+    mark = flows.cd_reads_total(port)
+    psxrun.press(port, "cross")
+    flows.advance_until_level(port, min(deadline, time.monotonic() + flows.LEVEL_LOAD_SECS))
+    flows.wait_until_in_level(port, out_dir, min(deadline, time.monotonic() + IN_LEVEL_SECS))
+    lvl2 = flows.cd_reads_in(port, mark, moh.M1_LVL2_LBAS)
+    lvl1 = flows.cd_reads_in(port, mark, moh.M1_LVL1_LBAS)
+    if not lvl2 or lvl1:
+        raise SmokeFailure(f"starting NEXT MISSION after loading read Level 2 data {lvl2} and "
+                           f"Level 1 data {lvl1}; a loaded save must continue with Level 2 only")
     psxrun.check_alive(proc)
-    _, frame_b = psxrun.read_frame(port, deadline)
-    if frame_b <= frame_a:
-        raise SmokeFailure(f"game stalled after loading (frame {frame_a} -> {frame_b})")
-    return f"name={name} mc_reads={reads_before}->{reads_after}"
+    return (f"name={name} mc_reads={reads_before}->{reads_after} ring={size} "
+            f"lvl2_reads={lvl2[:3]}")
 
 
 def main(argv=None):
@@ -90,7 +108,8 @@ def main(argv=None):
     ap.add_argument("--cue", required=True)
     ap.add_argument("--card", required=True)
     ap.add_argument("--port", type=int, default=psxdbg.DEFAULT_PORT)
-    ap.add_argument("--timeout", type=float, default=300.0)
+    # Boot, load, ring walk, briefing and Level 2 loading together take ~4-5 min.
+    ap.add_argument("--timeout", type=float, default=420.0)
     ap.add_argument("--out", default="")
     ap.add_argument("--game", default=os.path.join(REPO_ROOT, "game.toml"))
     args = ap.parse_args(argv)
@@ -120,7 +139,7 @@ def main(argv=None):
     print(f"save_smoke: out={out_dir}")
     proc = psxrun.launch(args.exe, args.cue, args.game, args.port, out_dir)
     try:
-        summary = check_save(proc, args.port, name, time.monotonic() + args.timeout)
+        summary = check_save(proc, args.port, name, out_dir, time.monotonic() + args.timeout)
         result = 0
     except SmokeFailure as exc:
         summary, result = str(exc), 1

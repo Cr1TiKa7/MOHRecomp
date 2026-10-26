@@ -45,6 +45,20 @@ class RingStepTests(unittest.TestCase):
     def test_backward_step_is_not_a_step(self):
         self.assertFalse(moh.is_ring_step(BASE + 2 * S, BASE + S))
 
+    def test_wrap_of_seven_entry_ring(self):
+        # After loading a save the ring has 7 entries (pointer wraps by 6 slots).
+        self.assertTrue(moh.is_ring_step(BASE + 6 * S, BASE, ring_size=7))
+        self.assertFalse(moh.is_ring_step(BASE + 6 * S, BASE))
+
+
+class ShotCountTests(unittest.TestCase):
+    def test_counts_decrements_only(self):
+        # 8 -> 7 -> 7 -> 6, reload to 8, -> 7: three shots
+        self.assertEqual(moh.count_shots([8, 7, 7, 6, 8, 7]), 3)
+
+    def test_no_shots(self):
+        self.assertEqual(moh.count_shots([8, 8, 8]), 0)
+
 
 if __name__ == "__main__":
     unittest.main()

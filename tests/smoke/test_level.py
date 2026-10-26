@@ -23,5 +23,15 @@ class FpsVerdictTests(unittest.TestCase):
             level_smoke.fps_verdict([50.0, 50.0])
 
 
+class FrozenTests(unittest.TestCase):
+    """A hung guest still counts frames but keeps showing the same picture."""
+
+    def test_identical_consecutive_shots_are_frozen(self):
+        self.assertTrue(level_smoke.looks_frozen([12.0, 0.2, 9.0]))
+
+    def test_changing_shots_are_live(self):
+        self.assertFalse(level_smoke.looks_frozen([12.0, 3.5, 9.0]))
+
+
 if __name__ == "__main__":
     unittest.main()
