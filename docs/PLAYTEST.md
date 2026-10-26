@@ -64,3 +64,18 @@ Ergebnis: ______
 3. Die Karte bleibt lokal und kommt nie ins Repo.
 
 Jedes gefundene Problem wird eine eigene Aufgabe. Es wird erst die Ursache gesucht und dann repariert.
+
+## M4: Maus und Tastatur (Abnahme)
+
+Im Release-Build (`build-release\MOH_Recompiled.exe`). Die neue Tastenbelegung liegt schon neben der `.exe`, die alte als `keybinds.ini.bak-m3`. Hinter jeden Punkt `ok` oder was dir auffällt.
+
+1. **Einschalten:** Launcher → Mods → Input → „Mouse Look“ an. ______
+2. **Einfangen:** Ein Klick ins Spiel fängt die Maus ein, dieser Klick schießt nicht. Esc gibt sie frei. Nach Pause oder Zwischensequenz genügt ein Klick. Wie oft musst du neu klicken, stört das? ______
+3. **Drehen:** Fühlt es sich direkt an? Empfindlichkeit im Launcher (Mods → Mouse Look) anpassen, bis es passt. Welcher Wert? ______
+4. **Zielen:** Rechte Maustaste halten zeigt das Fadenkreuz. Die Maus bewegt es, an seinem Rand dreht bzw. kippt die Ansicht. Passen die Grenzen oben und unten? ______
+5. **Nach dem Zielen** bleibt die Neigung der Kamera stehen. So verhält sich das Original mit einem Analog-Pad, mit einem Digital-Pad kippt sie zurück. Stört dich das? ______
+6. **Y-Invertierung** im Launcher umschalten: wirkt? ______
+7. **Tasten:** W/S laufen, A/D Seitschritt, Pfeile drehen, Z ducken, Linksklick und E schießen, R Waffe wechseln, F Blick nach oben, Return Pause. Passt etwas nicht? ______
+8. **Menüs mit der Tastatur:** Ein Tastendruck = genau ein Schritt im Menü? ______
+9. **EASY AIM** (Options → Controller) einmal an und einmal aus. Was ist dir lieber? ______
+10. **Gamepad:** ein paar Minuten nur mit dem Pad, bei eingeschaltetem Paket (die Sticks wirken dann zusätzlich). Alles wie gewohnt? ______

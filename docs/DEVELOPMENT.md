@@ -54,6 +54,10 @@ pwsh -File tools/run-smoke.ps1 -Build dev -Test save
 pwsh -File tools/run-smoke.ps1 -Build dev -Test sweep              # alle 24 Levels (-Mission N: nur eine Mission)
 pwsh -File tools/run-smoke.ps1 -Build dev -Test mp                 # Splitscreen
 pwsh -File tools/run-smoke.ps1 -Build dev -Test coverage-long      # je 10 min Videos, Menüs, Levels
+pwsh -File tools/run-smoke.ps1 -Build dev -Test mouse             # Maus-Paket (siehe „Maus“)
+
+# C-Unit-Test der Maus-Rechenlogik (wird mit build-dev gebaut)
+build-dev\moh_mouselook_test.exe
 ```
 
 | Test | Prüft | Dauer |
@@ -66,6 +70,7 @@ pwsh -File tools/run-smoke.ps1 -Build dev -Test coverage-long      # je 10 min V
 | `save` | Lädt das Fixture `D:\RecompDev\fixtures\moh-m1l1-complete.mcd` über WAR RECORDS → LOAD GAME. Der Spielername steht vorher nicht im Spielspeicher, danach schon. Die Karte wurde gelesen, das Spiel läuft weiter, das Fixture bleibt unverändert. | ~2 min |
 | `sweep` | Pro Level eine eigene Instanz ohne Autocompile: Sprung ins Level (siehe „Level-Sprung“), 30 s Laufen/Drehen/Schießen. Das Level hat seine eigenen Daten gelesen (bei allen außer M1L1 keine von M1L1), das Bild ändert sich weiter, Interpreter-Anteil < 1 %. Eine Zeile pro Level, bricht nie vorzeitig ab. `-Bonus` springt stattdessen in die MSN12-Ordner. | ~3 min pro Level |
 | `mp` | Ohne Autocompile: steckt über den Debug-Port einen Controller in Port 2, MULTIPLAYER → START GAME. `LEVEL2P.BIN` liegt an `0x80039F28`, jeder Controller dreht nur seine Bildhälfte (Spieler 1 oben), 60 s beide Spieler aktiv, `/DATA/TWOPLAYR/` gelesen, Interpreter-Anteil < 1 %. | ~4 min |
+| `mouse` | Maus-Paket an (`build-dev\mods\state.toml`, danach wiederhergestellt), drei Starts. M1L1: Gier pro Impuls exakt; im Zielmodus Fadenkreuz Y/X, Kameraneigung und Drehen am Rand exakt; nach dem Loslassen Fadenkreuz 0, Neigung bleibt; senkrechte Bewegung ohne Zielmodus und jede Bewegung in der Pause verfällt; alle Hook-Stellen laufen nativ. Splitscreen: kein Hook greift. Paket aus: keine Wirkung. | ~12 min |
 | `coverage-long` | Ohne Autocompile je 10 min Videos (Boot ohne Turbo, dann der ~108-s-Film unter BRIEFING in Schleife; jeder Durchlauf muss MDEC-Daten liefern und ins Menü zurückkehren), Menüs (Ring, OPTIONS, WAR RECORDS, GALLERY) und Levels (M1L1, M3L1, M7L1). Jede Phase zählt nur ihre eigenen Fenster und muss < 1 % interpretiert bleiben. Einträge an den Kernel-Patch-Slots des BIOS stehen als `slot=` daneben und zählen nicht mit (siehe „Overlays vorab nativ“). | ~45 min |
 
 **Fixture:** Die Karte stammt aus einem echten Durchlauf von Mission 1, Level 1 im Release-Build, gespeichert am 2026-10-26 als `BESLES-02470PASCAL0`. Sie liegt nur lokal und kommt nie ins Repo. Neu erzeugen: Level durchspielen, speichern, `saves\card1.mcd` dorthin kopieren.
@@ -145,6 +150,34 @@ py -3 tools/ramdiff.py --snapshots s0.bin s1.bin s2.bin --expected 0 1 2
 ```
 
 So wurde der Zeiger auf den aktuellen Menüeintrag gefunden (`moh.MENU_ITEM_PTR_ADDR`). Steckt der Wert nicht als Byte im Speicher, sondern z. B. als Zeiger, muss man nach arithmetischen Folgen suchen (Schrittweite ≠ 1).
+
+## Maus (`moh.input.mouse-keyboard`, M4)
+
+Das Mod-Paket liegt unter `mods/preloaded/packages/moh.input.mouse-keyboard/` und ist standardmäßig aus.
+- **Einschalten:** Launcher → Mods → Input → Mouse Look. Die Wahl landet in `mods\state.toml` neben der `.exe`.
+- **Optionen:**
+  - `sensitivity`: 1–200, Standard 40, das sind 6 550 Impulse pro Umdrehung
+  - `invert_y`: Y-Achse umkehren
+  - Beide wirken auch live.
+- **Bedienung:** Klick ins Fenster fängt die Maus ein (dieser Klick schießt nicht), Esc gibt sie frei. Verlässt man das Spiel (Pause, Menü, Ladebild), gibt die Runtime die Maus frei, ein Klick fängt sie wieder.
+- **Wirkung:**
+  - Normales Spielen: Die Maus dreht.
+  - Rechte Maustaste (R2) hält den Zielmodus: Die Maus bewegt das Fadenkreuz, an dessen Rand dreht bzw. kippt die Ansicht.
+  - Hoch/runter gibt es nur im Zielmodus, wie im Original.
+- **Analoges Pad:** Mit dem Paket meldet sich Spieler 1 als DualShock. Dann gilt das Original-Verhalten mit Analogpad:
+  - Die Kameraneigung bleibt nach dem Zielen stehen.
+  - Im Zielmodus zielt der Stick, nicht das Steuerkreuz.
+- **Code:**
+  - `src/mouse/mouselook.c`: Rechenlogik
+  - `src/mouse/moh_mouse_plugin.c`: Plugin `moh.mouse-look`
+  - Die Hook-Stellen stehen in `game.toml` (`mod_instruction_sites`). Nach Änderungen dort `generate` und neu bauen.
+- **Debug:**
+  - `{"cmd":"mod_cmd","name":"moh_mouse","args":"move <dx> <dy>"}` speist Mausimpulse ein. Die echte Maus-Erfassung ist unter Debug-Eingaben und im versteckten Fenster aus.
+  - `mod_counters` zeigt `moh_mouse.activate`, `.yaw_hook`, `.aim_x_hook`, `.aim_y_hook` und `.dropped` (verworfene Bewegung außerhalb des Spiels).
+- **Tests mit aktivem Paket:**
+  - Ohne Achswerte schickt der Debug-Override jede Richtung doppelt ans Spiel, sobald Spieler 1 analog ist.
+  - Die Helfer in `psxrun` schicken deshalb immer zentrierte Achsen.
+  - Mit `MOH_SMOKE_PAD_LAYER=host` steuern sie Pad 1 über das virtuelle Host-Gamepad, das wie ein echtes Pad zählt.
 
 ## Tastaturbelegung (`config/keybinds.ini`)
 

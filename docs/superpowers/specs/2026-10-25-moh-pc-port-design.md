@@ -79,7 +79,7 @@ Falls das Kompilieren der Overlays `gcc` braucht, kommt MSYS2 MinGW nach `D:\msy
   - `-Yes -EnableRecompUi -NoNetplay -NoFetchBoxart -NoGithub -Generate -EnableBuild`
   - Die genauen Flag-Namen prüfe ich vorher in der Hilfe des Skripts.
 - **Framework:** PSXRecomp ist als Submodul auf einen festen Commit gepinnt. Aktualisiert wird nur bewusst, mit Notiz im Commit.
-- **Eigene Framework-Änderungen** (z. B. für die Maus) liegen als Patches im Repo unter `patches/psxrecomp/` und werden beim Bauen angewandt. Erweist sich das als zu umständlich, wechseln wir auf einen eigenen Fork. Was allgemein nützlich ist, kann später als Pull Request zurück ins Framework.
+- **Eigene Framework-Änderungen** (bisher keine; die Maus kam in M4 ohne aus) liegen als Patches im Repo unter `patches/psxrecomp/` und werden beim Bauen angewandt. Erweist sich das als zu umständlich, wechseln wir auf einen eigenen Fork. Was allgemein nützlich ist, kann später als Pull Request zurück ins Framework.
 - **Nie im Repo:** Disc-Image, BIOS-Dumps, Logs, `overlay_captures.json` (enthält Spielcode im Originalwortlaut), Speicherstände.
 - **Features als Mod-Pakete:** Jedes Feature ist ein eigenes, abschaltbares Paket unter `mods/preloaded/packages/`:
   - `moh.input.mouse-keyboard`
@@ -103,7 +103,7 @@ Erst wenn ein Meilenstein erfüllt ist, beginnt der nächste. Jeder bekommt eine
 | **M1** | Bis ins Menü | Intro-Videos laufen mit Ton. Das Hauptmenü (`SHELL.BIN`, nativ aus Disc-Daten) lässt sich per Fernsteuerung bedienen. Die Speicherkarte wird angelegt und erkannt. |
 | **M2** | Erstes Level | Mission 1, Level 1 (`LEVEL.BIN`) lädt und ist ohne Absturz von Start bis Levelende spielbar: Ton, Gegner, Briefing, Ladebildschirme. Geprüft wird per Fernsteuerung, notfalls mit Speicher-Tricks (z. B. unverwundbar), oder du spielst es kurz durch. Nach Levelende speichern, nach Neustart laden: Das Spiel speichert erst nach Missionen, das Menü hat keinen Speicherpunkt (Änderung vom 2026-10-25). |
 | **M3** | Ganzes Spiel | Alle Missionen laden und lassen sich abschließen. Die drei Overlays sind aus Disc-Daten vorkompiliert. Mit `PSX_OVERLAY_AUTOCOMPILE_OFF=1` liegt `dispatch_interp_fallback` unter 1 % aller Overlay-Dispatches, gemessen mit `run-smoke -Test coverage-long` über je 10 Minuten Menü, Einzelspieler-Level und Videos. Nicht mit zählen die Kernel-Patch-Slots des BIOS (`install_slots`), die die Runtime mit Absicht interpretiert. `tools/stall_report.py` zählt sie mit. Splitscreen startet ohne Absturz. Den kompletten Durchlauf spielst du. |
-| **M4** | Maus + Tastatur | Freies Zielen mit der Maus, Empfindlichkeit einstellbar, Y-Achse invertierbar. WASD-Bewegung, Tasten in einer Konfigdatei frei belegbar. Gamepad funktioniert unverändert. Du nimmst das Spielgefühl ab. |
+| **M4** | Maus + Tastatur | Freies Zielen mit der Maus: Sie dreht immer und zielt im Zielmodus des Spiels (rechte Maustaste = R2) auch vertikal, wie das Pad. Empfindlichkeit einstellbar, Y-Achse invertierbar. WASD-Bewegung, Tasten in einer Konfigdatei frei belegbar. Gamepad funktioniert weiter. Du nimmst das Spielgefühl ab. |
 | **M5** | Bild | 16:9 ohne Objekte, die am neuen Bildrand verschwinden. HUD unverzerrt und korrekt verankert. Interne Auflösung bis 4K. Videos mit Pillarbox. Polygone wackeln nicht mehr (PGXP). |
 | **M6** | Höhere Bildrate | Flüssige Darstellung über den originalen ~25 fps, auch beim schnellen Umsehen mit der Maus. Die Spiellogik läuft unverändert im Originaltempo. |
 | **M7** | Veröffentlichung | Öffentliches GitHub-Repo, Release-Zip ohne Spieldaten, Lizenzhinweise, README mit Anleitung „eigene Disc einlegen“. Offene Rechtsfragen aus Abschnitt 9 sind geklärt. |
@@ -131,30 +131,33 @@ Erst wenn ein Meilenstein erfüllt ist, beginnt der nächste. Jeder bekommt eine
 
 ### 6.2 Maus + Tastatur (M4)
 
-**Warum nicht die Framework-Maus:**
-- `PSXModMousePolicy` kann nur den rechten Analogstick überschreiben.
-- Die Maus wird nur bei gedrückter linker Taste eingefangen.
-- Validiert ist sie auf einem älteren Ape-Escape-Zweig.
-- Für freies Zielen ist das ungeeignet.
+Umgesetzt in M4, Plan `docs/superpowers/plans/2026-10-26-moh-m4-mouse-keyboard.md`. Fünf Punkte weichen vom ursprünglichen Vorgehen ab, der Nutzer hat sie am 2026-10-26 freigegeben.
 
-**Vorgehen:**
-1. **Blickwinkel finden:** Die Spielfigur wird per Debug-Port (`set_input`) gedreht. Mit `read_ram` und `watch` vergleiche ich den Speicher, bis die Werte für Gier (horizontal) und Nick (vertikal) im Spieler-Struct gefunden sind.
-2. **Steuerfunktion finden:** Mit `wtrace_*` sehe ich, welcher Code in `LEVEL.BIN` diese Werte schreibt. Das ist die Funktion, die Controller-Eingaben in Drehung umsetzt.
-3. **Einhaken:** Über `psx_mod_register_function_entry_plugin` oder `psx_mod_register_instruction_plugin`, mit Eintrag in `[recompiler] mod_function_entry_funcs` bzw. `mod_instruction_sites`. Pro Spiel-Frame wird der gesammelte Maus-Versatz × Empfindlichkeit direkt auf Gier und Nick addiert. Die vertikalen Grenzen des Spiels bleiben dabei bestehen.
-   - Beide Hooks funktionieren laut Doku auch in Overlay-Shards.
-   - Prüfung der Instruktion über `expected_word`, damit der Hook nur am richtigen Overlay greift.
-4. **Rohe Mausbewegungen:** Die Framework-Runtime braucht eine Quelle für relative Mausbewegungen, also SDL-Relative-Mouse-Mode bei Fokus und Freigabe mit Esc. Das ist ein Patch nach `patches/psxrecomp/`. Ein solches Plugin-API für rohe Bewegungen gibt es laut Doku noch nicht.
-5. **Tastatur und Maustasten:** `psx_mod_set_pad_transform` bildet Tasten auf Pad-Eingaben ab:
-   - WASD → Bewegen/Seitschritt
-   - Linksklick → Schießen
-   - Rechtsklick und weitere Tasten frei belegbar
-   - Die Belegung steht in einer Konfigdatei im Paket.
-6. **Einstellungen:** Empfindlichkeit, Y-Invertierung und Tastenbelegung liegen in der Mod-Konfiguration und lassen sich ohne Neubau ändern.
+**Rohe Mausbewegungen ohne Framework-Patch:**
+- Die Maus-API der Runtime (`psx_mod_set_local_mouse_policy`) liefert relative Bewegungen mit Bruchteilen.
+- Mit `psx_mod_set_local_mouse_persistent_capture(1)` fängt ein Klick die Maus ein, Esc gibt sie frei.
+- Den rechten Analogstick nutzt das Plugin nicht, `patches/psxrecomp/` bleibt leer.
+- Die API fängt nur bei analog gemeldetem Spieler 1 ein. Das Paket meldet ihn deshalb als DualShock (`psx_mod_set_controller_mode_override`). Ein Gamepad funktioniert damit weiter, Steuerkreuz und Tasten wie bisher, zusätzlich die Sticks, so wie beim Original mit DualShock. Ist das Paket aus, bleibt alles digital.
 
-**Offen, erst im Code zu klären:**
-- Wie das Spiel analoge und digitale Eingaben verarbeitet
-- Ob es eine Zielhilfe gibt, die mit der Maus stört. Falls ja, wird sie im Maus-Modus abschaltbar.
-- Wie weit sich nach oben und unten zielen lässt
+**Was das Spiel vorgibt** (Erkundung M4, Werte in `tests/smoke/moh.py`):
+- **Normales Spielen:** nur Gier, 16.16-Festkomma im Spieler-Struct. Vertikal zielt das Spiel selbst (Option EASY AIM).
+- **Zielmodus** (R2 halten): Eine Rate pro Achse verschiebt erst das Fadenkreuz. Am Rand dreht die Ansicht (waagerecht) bzw. kippt die Kamera (senkrecht, bis etwa 60°).
+- Mit analogem Pad bleibt die Kameraneigung nach dem Loslassen stehen. Mit digitalem Pad kippt sie zurück.
+
+**Einhaken** (`src/mouse/moh_mouse_plugin.c`):
+- Drei Instruktions-Hooks in `LEVEL.BIN` (`[recompiler] mod_instruction_sites`), nativ erzeugt und auf den Spieler begrenzt:
+  - die Gier-Schreibstelle (normales Spielen)
+  - die beiden Raten-Ladebefehle des Zielmodus
+- Die Maus speist dieselben Werte wie das Pad. Die Grenzen und die Kamera-Logik des Spiels bleiben dadurch unverändert.
+- Nick gibt es deshalb nur im Zielmodus. Ein dauerhaft freier Nick würde die Schusslogik ändern.
+
+**Tasten:**
+- Über die `keybinds.ini` des Frameworks, die die Launcher-Seite Controls bearbeitet. Maustasten sind dort `Mouse1`…`Mouse5`.
+- `psx_mod_set_pad_transform` sieht keine Tasten, nur das fertige Pad. Eine eigene Konfigdatei im Paket entfällt.
+
+**Einstellungen:** Empfindlichkeit und Y-Invertierung sind Optionen des Pakets (Launcher → Mods). Sie wirken auch live.
+
+**Zielhilfe:** Das Spiel hat sie als eigene Option (EASY AIM, Options → Controller). Das Paket ändert daran nichts.
 
 ### 6.3 Bild (M5)
 
@@ -210,8 +213,8 @@ Erst wenn ein Meilenstein erfüllt ist, beginnt der nächste. Jeder bekommt eine
 | PAL/50 Hz nirgends dokumentiert | Timing- oder Tempo-Fehler | In M1/M2 Tempo mit dem Original vergleichen |
 | ~~Ladeadresse von `LEVEL2P.BIN` noch unbelegt~~ | Rezept stimmt nicht | Erledigt in M3: ebenfalls `0x80039F28`, im RAM belegt, drittes Image im Rezept |
 | Splitscreen mit echtem zweiten Controller nur per Debug-Port geprüft | Gerätezuweisung im Launcher könnte haken | Du prüfst einmal Tastatur + Gamepad (M3, `PLAYTEST.md`) |
-| Maus braucht Framework-Patch | Wartung bei Framework-Updates | Patch klein halten, später Upstream-PR anbieten |
-| Zielhilfe/Grenzen im Original | Maus fühlt sich „gebremst“ an | In M4 analysieren, im Maus-Modus abschaltbar machen |
+| ~~Maus braucht Framework-Patch~~ | Wartung bei Framework-Updates | Erledigt in M4: kein Patch nötig, die Maus-API der Runtime liefert rohe Bewegungen |
+| Zielhilfe/Grenzen im Original | Maus fühlt sich „gebremst“ an | M4: Zielhilfe ist die Spieloption EASY AIM; Grenzen und Kamera bleiben die des Spiels. Du prüfst das Gefühl bei der Abnahme. |
 | Frame-Gen verwirft schnelle Drehungen | Ruckeln beim Umsehen | Stufe 2 (Render Passes) einplanen |
 | Native-Wide unter OpenGL unklar | Nur Stauchungs-Widescreen | Früh in M5 testen |
 | Overlay-Kompilierung braucht evtl. `gcc` | Extra-Installation | MSYS2 auf D:, erst bei Bedarf |
