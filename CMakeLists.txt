@@ -70,3 +70,11 @@ foreach(_PSX_RUNTIME_CONFIG game.toml game_options.toml)
             VERBATIM)
     endif()
 endforeach()
+
+# Mouse-look arithmetic (M4): host-side unit test, run build-dir/moh_mouselook_test.
+enable_testing()
+add_executable(moh_mouselook_test
+    "${CMAKE_CURRENT_SOURCE_DIR}/tests/native/test_mouselook.c"
+    "${CMAKE_CURRENT_SOURCE_DIR}/src/mouse/mouselook.c")
+target_include_directories(moh_mouselook_test PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}/src/mouse")
+add_test(NAME mouselook COMMAND moh_mouselook_test)
