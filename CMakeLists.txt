@@ -42,7 +42,8 @@ psxrecomp_add_game_runtime(psx-runtime
     # ENABLE_SETUP_WIZARD
     WINDOW_TITLE "MOH Recompiled"
     DEFAULT_GAME_CONFIG_PATH "game.toml"
-    MAX_PLAYERS 1
+    # 2: the split-screen mode needs a pad in port 2 (with 1, sio ignores slot 1).
+    MAX_PLAYERS 2
     # LAUNCHER_BOXART "${CMAKE_CURRENT_SOURCE_DIR}/launcher_assets/img/boxart.tga"
     APP_ICON "${CMAKE_CURRENT_SOURCE_DIR}/assets/psxrecomp.ico"
     # Committed game C (psxrecomp_cli.py generate; git add generated). Release
