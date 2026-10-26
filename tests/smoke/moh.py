@@ -19,6 +19,12 @@ MENU_ITEM_STRIDE = 0x274         # bytes between ring entries
 
 # SHELL.BIN is loaded verbatim here (boot EXE: lui a1,0x8004 / addiu a1,a1,0x9F28).
 SHELL_LOAD_ADDR = 0x80039F28
+# WAR RECORDS opens a desk submenu; RIGHT browses PERSONAL RECORDS, LOAD GAME,
+# SAVE GAME. X on LOAD GAME shows "Checking memory card", then the save list,
+# then "Loading game" / "Game loaded"; afterwards the first ring entry reads
+# NEXT MISSION instead of NEW GAME and the player name is in game RAM.
+LOAD_GAME_RIGHTS = 2
+
 # First word of each overlay file: SHELL.BIN 7, LEVEL.BIN 5, LEVEL2P.BIN 6.
 SHELL_FILE_ID = 7
 LEVEL_FILE_ID = 5

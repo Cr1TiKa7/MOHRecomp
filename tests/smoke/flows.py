@@ -158,6 +158,27 @@ def start_new_game(port, base, deadline):
 
 
 # --------------------------------------------------------------------------
+# RAM search
+# --------------------------------------------------------------------------
+
+RAM_BASE = 0x80000000
+GAME_RAM_START = 0x10000   # below: BIOS/kernel, which caches the card directory
+
+
+def ram_hits(ram, needle, limit=16):
+    """Addresses of needle in a main-RAM dump, ignoring the BIOS/kernel area."""
+    hits, pos = [], ram.find(needle, GAME_RAM_START)
+    while pos != -1 and len(hits) < limit:
+        hits.append(RAM_BASE + pos)
+        pos = ram.find(needle, pos + 1)
+    return hits
+
+
+def game_ram_hits(port, needle):
+    return ram_hits(psxrun.read_bytes(port, RAM_BASE, 0x200000), needle)
+
+
+# --------------------------------------------------------------------------
 # Overlay dispatch counters
 # --------------------------------------------------------------------------
 

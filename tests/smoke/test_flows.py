@@ -120,5 +120,18 @@ class WaitInLevelTests(unittest.TestCase):
             srv.close()
 
 
+class RamHitsTests(unittest.TestCase):
+    """Game RAM starts at 0x80010000; below it the BIOS caches the card directory."""
+
+    def test_hits_below_game_ram_ignored(self):
+        ram = bytearray(0x20000)
+        ram[0x4E3E:0x4E44] = b"PASCAL"
+        ram[0x1AA00:0x1AA06] = b"PASCAL"
+        self.assertEqual(flows.ram_hits(bytes(ram), b"PASCAL"), [0x8001AA00])
+
+    def test_no_hits(self):
+        self.assertEqual(flows.ram_hits(bytes(0x20000), b"PASCAL"), [])
+
+
 if __name__ == "__main__":
     unittest.main()
