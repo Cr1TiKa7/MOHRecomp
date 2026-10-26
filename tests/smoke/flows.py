@@ -4,9 +4,11 @@ Main-menu navigation, the way from boot into the menu and from NEW GAME into
 Mission 1 Level 1, and the overlay dispatch counters used for coverage.
 """
 
+import functools
 import os
 import struct
 import time
+import tomllib
 
 import moh
 import pngcheck
@@ -21,6 +23,8 @@ NUDGE_SECS = 3.0
 LEVEL_LOAD_SECS = 120.0   # FMVs + briefing + loading took ~15-40 s with X every 3 s
 NEW_GAME_SETTLE_FRAMES = 150   # 3 s at 50 Hz: NEW GAME has reset the game state by then (first FMV running)
 IN_LEVEL_DIFF = 10.0      # poster vs. poster < 1 (progress bar); poster vs. level 34-104 (M1L2/M1L1)
+BIOS_PROFILES = os.path.normpath(os.path.join(os.path.dirname(os.path.abspath(__file__)),
+                                              "..", "..", "psxrecomp", "bios"))
 
 
 # --------------------------------------------------------------------------
@@ -302,9 +306,46 @@ def game_ram_hits(port, needle):
 # Overlay dispatch counters
 # --------------------------------------------------------------------------
 
+# The game's Psy-Q libapi patches a few kernel-RAM words at runtime (the
+# _patch_card stub at 0x281C, installed on the first card access, runs once per
+# exception). The BIOS profile declares them as install slots and the runtime
+# interprets exactly those words by design (psxrecomp/docs/
+# dynamic_handler_install.md); they are kernel code, not overlay code, so the
+# overlay share leaves their interpreted entries out (verified 2026-10-26: in
+# the main menu they were 5199 of 5205 interpreted dispatches).
+
+@functools.lru_cache(maxsize=None)
+def install_slots(image_id, profile_dir=BIOS_PROFILES):
+    """[lo, hi) kernel-RAM install slots the BIOS profile with [program] id == image_id declares.
+
+    No matching profile means no slots: nothing is left out of the share.
+    """
+    for name in sorted(os.listdir(profile_dir)):
+        if not name.endswith(".toml"):
+            continue
+        with open(os.path.join(profile_dir, name), "rb") as f:
+            profile = tomllib.load(f)
+        if profile.get("program", {}).get("id") == image_id:
+            slots = profile.get("recompiler", {}).get("install_slots", [])
+            return [(int(s["ram_addr"], 16), int(s["ram_addr"], 16) + int(s["len"], 16)) for s in slots]
+    return []
+
+
+def slot_entries(port, slots):
+    """Interpreted entries at PCs inside the install slots (dirty_ram_stats per_pc, since boot)."""
+    total = 0
+    for lo, hi in slots:
+        reply = psxdbg.send("dirty_ram_stats", port=port, lo="0x%08X" % lo, hi="0x%08X" % hi)
+        total += sum(int(row["entries"]) for row in reply.get("per_pc", []))
+    return total
+
+
 def overlay_counters(port):
-    """DLL-native, static-shard and interpreted overlay dispatches, plus interpreted insns."""
+    """DLL-native, static-shard and interpreted overlay dispatches, interpreted insns,
+    and the interpreted entries at the BIOS install slots ("slot", part of "interp")."""
+    slots = install_slots(psxdbg.send("bios_info", port=port).get("image_id", ""))
     status = psxdbg.send("overlay_loader_status", port=port)
+    slot = slot_entries(port, slots)
     static = psxdbg.send("overlay_static_entries", port=port)
     dirty = psxdbg.send("dirty_ram_stats", port=port)
     return {
@@ -312,11 +353,17 @@ def overlay_counters(port):
         "static": int(static.get("total_hits", 0)) if static.get("ok") else 0,
         "interp": int(status.get("dispatch_interp_fallback", 0)),
         "insns": int(dirty.get("insns_run", 0)),
+        "slot": slot,
     }
+
+
+def delta_share(delta):
+    """Interpreted share of the overlay dispatches in a counter delta, install-slot entries left out."""
+    interp = max(0, delta["interp"] - delta.get("slot", 0))
+    total = delta["native"] + delta["static"] + interp
+    return interp / total if total else 1.0
 
 
 def window_share(before, after):
     """Interpreted share of overlay dispatches between two overlay_counters() samples."""
-    delta = {k: after[k] - before[k] for k in ("native", "static", "interp")}
-    total = delta["native"] + delta["static"] + delta["interp"]
-    return delta["interp"] / total if total else 1.0
+    return delta_share({k: after[k] - before[k] for k in after})

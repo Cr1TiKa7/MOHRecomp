@@ -11,7 +11,8 @@ sum of its own windows (never since-boot totals):
            film replayed; each replay must feed the MDEC and return to the menu
   menus  - main-menu ring, OPTIONS / WAR RECORDS / GALLERY opened and browsed
   levels - M1L1, M3L1 and M7L1 (jumped to via the game state), input loop
-Each phase must stay below MAX_SHARE interpreted overlay dispatches.
+Each phase must stay below MAX_SHARE interpreted overlay dispatches; entries
+at the BIOS install slots (flows.install_slots) are reported as slot= and left out.
 Exit 0/1, one line per phase plus a FAIL line naming the phases over the limit.
 """
 
@@ -39,7 +40,7 @@ BRIEFING_MAX_SECS = 180.0
 MIN_FILM_WORDS = 1_000_000   # one full BRIEFING fed ~6.97 M words to the MDEC
 SUBMENUS = ("OPTIONS", "WAR RECORDS", "GALLERY")
 SmokeFailure = psxrun.SmokeFailure
-KEYS = ("native", "static", "interp", "insns")
+KEYS = ("native", "static", "interp", "insns", "slot")
 PHASES = ("videos", "menus", "levels")
 
 
@@ -54,8 +55,7 @@ def accumulate(segments):
 
 
 def share(delta):
-    total = delta["native"] + delta["static"] + delta["interp"]
-    return delta["interp"] / total if total else 1.0
+    return flows.delta_share(delta)
 
 
 def film_words(samples):
@@ -95,7 +95,7 @@ def report(totals, phases):
     for phase in phases:
         delta = totals.get(phase, {k: 0 for k in KEYS})
         s = share(delta)
-        print(f"coverage_long: {phase}: interp={s:.4f} insns={delta['insns']} "
+        print(f"coverage_long: {phase}: interp={s:.4f} slot={delta['slot']} insns={delta['insns']} "
               f"dispatches={delta['native'] + delta['static'] + delta['interp']}", flush=True)
         if s >= MAX_SHARE:
             over.append(phase)

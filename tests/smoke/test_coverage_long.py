@@ -15,8 +15,8 @@ import coverage_long  # noqa: E402
 from fakes import FakeServer  # noqa: E402
 
 
-def c(native, static, interp, insns):
-    return {"native": native, "static": static, "interp": interp, "insns": insns}
+def c(native, static, interp, insns, slot=0):
+    return {"native": native, "static": static, "interp": interp, "insns": insns, "slot": slot}
 
 
 class AccumulateTests(unittest.TestCase):
@@ -35,6 +35,19 @@ class AccumulateTests(unittest.TestCase):
 
     def test_empty_phase_counts_as_fully_interpreted(self):
         self.assertEqual(coverage_long.share(c(0, 0, 0, 0)), 1.0)
+
+    def test_install_slot_entries_accumulate_and_leave_the_share(self):
+        # Measured 2026-10-26 (menus): 5205 interpreted, 5199 of them at the
+        # _patch_card stub 0x281C; 248797 static.
+        totals = coverage_long.accumulate([("menus", c(0, 0, 0, 0), c(0, 248797, 5205, 20816, 5199))])
+        self.assertEqual(totals["menus"]["slot"], 5199)
+        self.assertLess(coverage_long.share(totals["menus"]), 0.0001)
+
+    def test_report_names_the_slot_entries(self):
+        with contextlib.redirect_stdout(io.StringIO()) as out:
+            over = coverage_long.report({"menus": c(0, 990, 510, 0, 500)}, ("menus",))
+        self.assertEqual(over, ["menus"])
+        self.assertIn("coverage_long: menus: interp=0.0100 slot=500", out.getvalue())
 
 
 class FilmTests(unittest.TestCase):

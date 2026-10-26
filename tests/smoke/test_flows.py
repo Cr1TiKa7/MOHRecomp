@@ -104,30 +104,81 @@ class WindowShareTests(unittest.TestCase):
         c = {"native": 1, "static": 2, "interp": 3, "insns": 4}
         self.assertEqual(flows.window_share(c, dict(c)), 1.0)
 
+    def test_install_slot_entries_leave_the_share(self):
+        # 500 interpreted entries at the _patch_card stub (one per exception)
+        # are by design, not missing overlay code: only the other 10 count.
+        before = {"native": 0, "static": 1000, "interp": 100, "insns": 0, "slot": 80}
+        after = {"native": 0, "static": 1990, "interp": 610, "insns": 0, "slot": 580}
+        self.assertAlmostEqual(flows.window_share(before, after), 0.01)
+
+    def test_only_slots(self):
+        before = {"native": 0, "static": 0, "interp": 0, "insns": 0, "slot": 0}
+        after = {"native": 0, "static": 1000, "interp": 500, "insns": 0, "slot": 500}
+        self.assertEqual(flows.window_share(before, after), 0.0)
+
+
+class InstallSlotTests(unittest.TestCase):
+    """The BIOS profile declares the kernel-RAM words the game's libapi patches at runtime."""
+
+    def test_openbios_slots_from_the_pinned_profile(self):
+        self.assertEqual(flows.install_slots("OPENBIOS"),
+                         [(0x27B4, 0x27E4), (0x281C, 0x282C), (0x357C, 0x358C)])
+
+    def test_unknown_bios_has_no_slots(self):
+        # No profile: nothing is left out, so the share can only get stricter.
+        self.assertEqual(flows.install_slots("NO-SUCH-BIOS"), [])
+
 
 class OverlayCountersTests(unittest.TestCase):
-    def test_overlay_counters_reads_three_commands(self):
-        replies = {
+    @staticmethod
+    def _server(replies, slot_rows=()):
+        """slot_rows: per_pc rows dirty_ram_stats returns for a lo/hi query that contains them."""
+        def reply(request):
+            if request["cmd"] == "dirty_ram_stats" and "lo" in request:
+                lo, hi = int(request["lo"], 16), int(request["hi"], 16)
+                rows = [r for r in slot_rows if lo <= int(r["pc"], 16) < hi]
+                return {"ok": True, "per_pc": rows, "per_pc_matching": len(rows)}
+            return replies[request["cmd"]]
+        return FakeServer(reply)
+
+    def test_overlay_counters_reads_the_counters(self):
+        srv = self._server({
             "overlay_loader_status": {"ok": True, "dispatch_native": 2, "dispatch_interp_fallback": 3},
             "overlay_static_entries": {"ok": True, "total_hits": 5},
             "dirty_ram_stats": {"ok": True, "insns_run": 7},
-        }
-        srv = FakeServer(lambda request: replies[request["cmd"]])
+            "bios_info": {"ok": True, "image_id": "NO-SUCH-BIOS"},
+        })
         try:
             self.assertEqual(flows.overlay_counters(srv.port),
-                             {"native": 2, "static": 5, "interp": 3, "insns": 7})
+                             {"native": 2, "static": 5, "interp": 3, "insns": 7, "slot": 0})
         finally:
             srv.close()
 
     def test_overlay_counters_without_static_dispatcher(self):
-        replies = {
+        srv = self._server({
             "overlay_loader_status": {"ok": True, "dispatch_native": 0, "dispatch_interp_fallback": 9},
             "overlay_static_entries": {"ok": False, "error": "no static overlay dispatcher linked"},
             "dirty_ram_stats": {"ok": True, "insns_run": 1},
-        }
-        srv = FakeServer(lambda request: replies[request["cmd"]])
+            "bios_info": {"ok": True, "image_id": "NO-SUCH-BIOS"},
+        })
         try:
             self.assertEqual(flows.overlay_counters(srv.port)["static"], 0)
+        finally:
+            srv.close()
+
+    def test_slot_counts_interpreted_entries_inside_the_slots_only(self):
+        srv = self._server({
+            "overlay_loader_status": {"ok": True, "dispatch_native": 0, "dispatch_interp_fallback": 1750},
+            "overlay_static_entries": {"ok": True, "total_hits": 46616},
+            "dirty_ram_stats": {"ok": True, "insns_run": 6872},
+            "bios_info": {"ok": True, "image_id": "OPENBIOS"},
+        }, slot_rows=[
+            {"pc": "0x0000281C", "hits": 1718, "insns": 5154, "entries": 1718},
+            {"pc": "0x000027B4", "hits": 2, "insns": 24, "entries": 2},
+            {"pc": "0x80012340", "hits": 30, "insns": 90, "entries": 30},   # not a slot
+        ])
+        try:
+            self.assertEqual(flows.overlay_counters(srv.port)["slot"], 1720)
         finally:
             srv.close()
 
