@@ -85,6 +85,25 @@ py -3 tools/ramdiff.py --snapshots s0.bin s1.bin s2.bin --expected 0 1 2
 
 So wurde der Zeiger auf den aktuellen Menüeintrag gefunden (`moh.MENU_ITEM_PTR_ADDR`). Steckt der Wert nicht als Byte im Speicher, sondern z. B. als Zeiger, muss man nach arithmetischen Folgen suchen (Schrittweite ≠ 1).
 
+## Tastaturbelegung (`config/keybinds.ini`)
+
+Die Runtime liest `keybinds.ini` neben der `.exe`. Fehlt die Datei, legt sie sie mit den Framework-Standardtasten an. Unsere Belegung (Wunsch vom 2026-10-26, deutsche QWERTZ-Tastatur) liegt in `config/keybinds.ini`. Nach einem Neuaufsetzen der Build-Ordner kopierst du sie neben die `.exe`:
+
+```powershell
+Copy-Item config\keybinds.ini build-release\keybinds.ini
+```
+
+| PS1 | Taste |
+|---|---|
+| Steuerkreuz / linker Stick | W A S D (Pfeiltasten zusätzlich) |
+| Kreuz / Kreis / Quadrat / Dreieck | E / R / Q / Esc |
+| L2 / L1 / R1 / R2 | Z / U / I / O |
+| Start / Select | Return / rechte Umschalttaste |
+
+SDL-Tastennamen meinen US-Positionen. Die Taste **Z** einer QWERTZ-Tastatur heißt in der Datei deshalb `Y`.
+
+Die Smoke-Tests sind von der Belegung unabhängig, sie steuern über den Debug-Override (`press`/`set_input`). Ab M4 wird die Belegung Teil des Mod-Pakets `moh.input.mouse-keyboard`.
+
 ## Debug-Port
 
 Nur im Dev-Build. Pro TCP-Verbindung geht genau eine JSON-Zeile hin und eine zurück, z. B. `{"id":1,"cmd":"ping"}`. Python-Client: `tests/smoke/psxdbg.py` (`send(cmd, port=4370, **params)`).
