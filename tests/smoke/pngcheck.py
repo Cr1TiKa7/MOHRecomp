@@ -97,3 +97,18 @@ def mean_abs_diff(path_a, path_b):
         raise ValueError(f"size mismatch: {wa}x{ha}x{bpa} vs {wb}x{hb}x{bpb}")
     total = sum(abs(x - y) for ra, rb in zip(rows_a, rows_b) for x, y in zip(ra, rb))
     return total / (wa * ha * bpa)
+
+
+def half_diffs(path_a, path_b):
+    """(top, bottom): mean absolute difference of the upper and lower half (split screen)."""
+    wa, ha, bpa, rows_a = read_pixels(path_a)
+    wb, hb, bpb, rows_b = read_pixels(path_b)
+    if (wa, ha, bpa) != (wb, hb, bpb):
+        raise ValueError(f"size mismatch: {wa}x{ha}x{bpa} vs {wb}x{hb}x{bpb}")
+    mid = ha // 2
+
+    def diff(lo, hi):
+        total = sum(abs(x - y) for ra, rb in zip(rows_a[lo:hi], rows_b[lo:hi]) for x, y in zip(ra, rb))
+        return total / ((hi - lo) * wa * bpa)
+
+    return diff(0, mid), diff(mid, ha)

@@ -30,6 +30,14 @@ LOAD_GAME_RIGHTS = 2
 # First word of each overlay file: SHELL.BIN 7, LEVEL.BIN 5, LEVEL2P.BIN 6.
 SHELL_FILE_ID = 7
 LEVEL_FILE_ID = 5
+LEVEL2P_FILE_ID = 6
+
+# MULTIPLAYER opens its own room; START GAME is preselected and needs a pad in
+# port 2 ("NOT ALL CONTROLLERS PLUGGED IN..." otherwise). X on it loads
+# LEVEL2P.BIN straight away; the split screen shows player 1 on top and player
+# 2 below. The default arena is /DATA/MSN12/LVL4, the player models and
+# weapons come from /DATA/TWOPLAYR/ (verified 2026-10-26).
+TWOPLAYR_LBAS = (134948, 139527)  # /DATA/TWOPLAYR/{PLAYERS,WEAPONS}/*
 
 # Disc sectors (ISO LBAs) of the per-level data files; cd_read_log logs the
 # start LBA of each read, so the level a mission start loads shows up here.
@@ -48,7 +56,8 @@ LEVELS = (
     (7, 1, (92107, 96662)), (7, 2, (96664, 101218)), (7, 3, (101220, 108049)),
     (9, 1, (108052, 112028)), (9, 2, (112030, 116060)), (9, 4, (116062, 118325)),
 )
-# /DATA/MSN12/LVL1-7: three files per level only; probably bonus/secret levels.
+# /DATA/MSN12/LVL1-7: three files per level only. The split screen loads its
+# default arena from LVL4, so these are most likely the multiplayer arenas.
 BONUS_LEVELS = (
     (12, 1, (15210, 15788)), (12, 2, (15790, 16376)), (12, 3, (16378, 16979)),
     (12, 4, (16981, 17610)), (12, 5, (17612, 23592)), (12, 6, (23594, 24155)),

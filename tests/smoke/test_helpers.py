@@ -127,6 +127,12 @@ class PngCheckTests(unittest.TestCase):
         with self.assertRaises(ValueError):
             pngcheck.mean_abs_diff(self.path, other)
 
+    def test_half_diffs_split_top_and_bottom(self):
+        other = os.path.join(self.tmp.name, "u.png")
+        _write_png(self.path, 2, 4, [(0, 0, 0)] * 8, filter_type=1)
+        _write_png(other, 2, 4, [(0, 0, 0)] * 4 + [(30, 30, 30)] * 2 + [(0, 0, 0)] * 2)
+        self.assertEqual(pngcheck.half_diffs(self.path, other), (0.0, 15.0))
+
 
 class PsxDbgTests(unittest.TestCase):
     def test_send_roundtrip(self):

@@ -117,20 +117,20 @@ def boot_to_menu(proc, port, deadline):
 # NEW GAME -> Mission 1 Level 1
 # --------------------------------------------------------------------------
 
-def advance_until_level(port, deadline, nudge_secs=NUDGE_SECS):
-    """Press X through the post-NEW GAME FMVs and briefing until LEVEL.BIN is in place."""
+def advance_until_level(port, deadline, nudge_secs=NUDGE_SECS, file_id=moh.LEVEL_FILE_ID):
+    """Press X through FMVs and briefing until the overlay file_id (default LEVEL.BIN) is in place."""
     last = None
     while time.monotonic() < deadline:
         try:
             last = psxrun.read_u32(port, moh.SHELL_LOAD_ADDR)
-            if last == moh.LEVEL_FILE_ID:
+            if last == file_id:
                 return
             psxrun.press(port, "cross")
         except psxrun.TRANSIENT:
             pass
         time.sleep(nudge_secs)
     seen = "unreadable" if last is None else f"0x{last:08X}"
-    raise SmokeFailure(f"LEVEL.BIN never replaced SHELL.BIN at 0x{moh.SHELL_LOAD_ADDR:08X} "
+    raise SmokeFailure(f"overlay {file_id} never replaced SHELL.BIN at 0x{moh.SHELL_LOAD_ADDR:08X} "
                        f"(overlay word {seen})")
 
 
@@ -203,8 +203,33 @@ def start_new_game(port, base, deadline):
 LOOP_STEPS = (("up", 2.0), ("right", 1.5), ("left", 0.5), (moh.FIRE_BUTTON, 0.3))
 
 
-def input_loop(proc, port, out_dir, secs, deadline, shot_every=10, prefix="loop"):
-    """Walk/turn/fire for secs; the game must stay alive and keep counting frames.
+def plug_pad2(port, buttons=0xFFFF):
+    """Plug a digital pad into port 2 (held until clear_input) with the given buttons word."""
+    psxdbg.send("set_input", port=port, buttons=buttons, payload={"port": 2, "connected": 1})
+
+
+def hold(port, name, secs, pads=(1,)):
+    """Hold one button on the given pads, then release it.
+
+    Pad 1 is released with clear_input for port 1 only: a bare clear_input also
+    ends the port-2 injection, which unplugs pad 2. Pad 2 is released by
+    driving it with no buttons pressed.
+    """
+    for pad in pads:
+        if pad == 2:
+            plug_pad2(port, psxrun.mask(name))
+        else:
+            psxdbg.send("set_input", port=port, buttons=psxrun.mask(name))
+    time.sleep(secs)
+    for pad in pads:
+        if pad == 2:
+            plug_pad2(port)
+        else:
+            psxdbg.send("clear_input", port=port, payload={"port": 1})
+
+
+def input_loop(proc, port, out_dir, secs, deadline, shot_every=10, prefix="loop", pads=(1,)):
+    """Walk/turn/fire for secs on the given pads; the game must stay alive and keep counting frames.
 
     Returns the screenshots taken every shot_every seconds (for freeze checks).
     """
@@ -212,10 +237,8 @@ def input_loop(proc, port, out_dir, secs, deadline, shot_every=10, prefix="loop"
     _, last_frame = psxrun.read_frame(port, deadline)
     shots, next_shot, n = [], time.monotonic(), 0
     while time.monotonic() < end:
-        for name, hold in LOOP_STEPS:
-            psxdbg.send("set_input", port=port, buttons=psxrun.mask(name))
-            time.sleep(hold)
-            psxdbg.send("clear_input", port=port)
+        for name, secs_held in LOOP_STEPS:
+            hold(port, name, secs_held, pads)
         psxrun.check_alive(proc)
         _, frame = psxrun.read_frame(port, deadline)
         if frame <= last_frame:

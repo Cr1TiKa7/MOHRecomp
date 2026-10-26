@@ -2,14 +2,17 @@
 
 import os
 import sys
+import tempfile
 import time
 import unittest
+from unittest import mock
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
 import flows  # noqa: E402
+import moh  # noqa: E402
 import psxrun  # noqa: E402
-from fakes import FakeServer  # noqa: E402
+from fakes import FakeServer, _FakeProc  # noqa: E402
 
 
 class AdvanceToLevelTests(unittest.TestCase):
@@ -39,6 +42,56 @@ class AdvanceToLevelTests(unittest.TestCase):
                 flows.advance_until_level(srv.port, time.monotonic() + 0.5, nudge_secs=0.01)
         finally:
             srv.close()
+
+    def test_waits_for_the_requested_overlay(self):
+        words = iter(["07000000", "05000000", "06000000"])
+        srv = FakeServer(lambda request: {"id": 1, "ok": True, "hex": next(words)}
+                         if request.get("cmd") == "read_ram" else {"id": 1, "ok": True})
+        try:
+            flows.advance_until_level(srv.port, time.monotonic() + 5, nudge_secs=0.01,
+                                      file_id=moh.LEVEL2P_FILE_ID)
+        finally:
+            srv.close()
+        self.assertEqual(len([r for r in srv.seen if r["cmd"] == "press"]), 2)
+
+
+class InputLoopTests(unittest.TestCase):
+    """Split screen: pad 2 is plugged in over the debug port and must stay plugged in."""
+
+    def _run(self, pads):
+        frames = iter(range(100, 10000, 10))
+        tmp = tempfile.TemporaryDirectory()
+        self.addCleanup(tmp.cleanup)
+
+        def reply(request):
+            if request.get("cmd") == "frame":
+                return {"id": 1, "ok": True, "frame": next(frames)}
+            if request.get("cmd") == "screenshot":
+                open(request["path"], "wb").close()
+            return {"id": 1, "ok": True}
+
+        srv = FakeServer(reply)
+        self.addCleanup(srv.close)
+        steps = (("up", 0.01), ("cross", 0.01))
+        with mock.patch.object(flows, "LOOP_STEPS", steps):
+            flows.input_loop(_FakeProc(None), srv.port, tmp.name, 0.05, time.monotonic() + 5,
+                             pads=pads)
+        return srv.seen
+
+    def test_single_player_drives_pad_1_only(self):
+        seen = self._run(pads=(1,))
+        self.assertTrue(any(r["cmd"] == "set_input" for r in seen))
+        self.assertFalse(any(r.get("port") == 2 for r in seen))
+
+    def test_both_pads_driven_and_pad_2_never_unplugged(self):
+        seen = self._run(pads=(1, 2))
+        p2 = [r for r in seen if r["cmd"] == "set_input" and r.get("port") == 2]
+        self.assertIn(psxrun.mask("up"), [r["buttons"] for r in p2])
+        self.assertIn(0xFFFF, [r["buttons"] for r in p2])          # released, not cleared
+        self.assertTrue(all(r.get("connected") == 1 for r in p2))
+        clears = [r for r in seen if r["cmd"] == "clear_input"]
+        self.assertTrue(clears)
+        self.assertTrue(all(r.get("port") == 1 for r in clears))  # a bare clear_input unplugs pad 2
 
 
 class WindowShareTests(unittest.TestCase):
