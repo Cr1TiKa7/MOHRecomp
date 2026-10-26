@@ -301,5 +301,43 @@ class BootSmokeTests(unittest.TestCase):
         self.tmp.cleanup()
 
 
+class KeybindsTests(unittest.TestCase):
+    """config/keybinds.ini: player 1's mouse + keyboard layout (M4)."""
+
+    def setUp(self):
+        import configparser
+        path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "..", "config", "keybinds.ini")
+        parser = configparser.ConfigParser()
+        with open(path, encoding="utf-8") as f:
+            parser.read_file(f)
+        self.p1 = {k: [b.strip() for b in v.split(",")] for k, v in parser["player1"].items()}
+
+    def test_mouse_buttons_fire_and_aim(self):
+        self.assertIn("Mouse1", self.p1["cross"])
+        self.assertIn("Mouse3", self.p1["r2"])
+
+    def test_a_and_d_strafe(self):
+        self.assertEqual(self.p1["l1"][0], "A")
+        self.assertEqual(self.p1["r1"][0], "D")
+
+    def test_triangle_has_a_key_besides_escape(self):
+        # Escape first releases the captured mouse, so triangle (look up) needs another key.
+        self.assertIn("Escape", self.p1["triangle"])
+        self.assertIn("F", self.p1["triangle"])
+
+    def test_sticks_are_unbound(self):
+        # An analog P1 would otherwise get every key twice (d-pad and stick).
+        for name in ("ls_up", "ls_down", "ls_left", "ls_right", "rs_up", "rs_down", "rs_left", "rs_right"):
+            self.assertEqual(self.p1[name], ["None"], name)
+
+    def test_no_key_drives_two_inputs(self):
+        seen = {}
+        for name, keys in self.p1.items():
+            for key in keys:
+                if key != "None":
+                    self.assertNotIn(key, seen, f"{key} bound to {seen.get(key)} and {name}")
+                    seen[key] = name
+
+
 if __name__ == "__main__":
     unittest.main()

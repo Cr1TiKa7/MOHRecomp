@@ -148,22 +148,32 @@ So wurde der Zeiger auf den aktuellen Menüeintrag gefunden (`moh.MENU_ITEM_PTR_
 
 ## Tastaturbelegung (`config/keybinds.ini`)
 
-Die Runtime liest `keybinds.ini` neben der `.exe`. Fehlt die Datei, legt sie sie mit den Framework-Standardtasten an. Unsere Belegung (Wunsch vom 2026-10-26, deutsche QWERTZ-Tastatur) liegt in `config/keybinds.ini`. Nach einem Neuaufsetzen der Build-Ordner kopierst du sie neben die `.exe`:
+Die Runtime liest `keybinds.ini` neben der `.exe`, die Launcher-Seite Controls bearbeitet dieselbe Datei. Unsere Belegung für Tastatur und Maus (M4, deutsche QWERTZ-Tastatur) liegt in `config/keybinds.ini`.
+- Der Build kopiert sie neben die `.exe`, aber nur, wenn dort noch keine liegt (`cmake/copy_if_missing.cmake`). Eine vorhandene Datei gehört dem Spieler und bleibt unangetastet.
+- Nach Änderungen an `config/keybinds.ini` kopierst du sie deshalb selbst:
 
 ```powershell
 Copy-Item config\keybinds.ini build-release\keybinds.ini
 ```
 
-| PS1 | Taste |
-|---|---|
-| Steuerkreuz / linker Stick | W A S D (Pfeiltasten zusätzlich) |
-| Kreuz / Kreis / Quadrat / Dreieck | E / R / Q / Esc |
-| L2 / L1 / R1 / R2 | Z / U / I / O |
-| Start / Select | Return / rechte Umschalttaste |
+| PS1 | Taste / Maus | Wirkung im Level |
+|---|---|---|
+| Steuerkreuz hoch / runter | W / S (Pfeil hoch/runter zusätzlich) | laufen |
+| Steuerkreuz links / rechts | Pfeil links / rechts | drehen (die Maus dreht auch) |
+| L1 / R1 | A / D (U / I zusätzlich) | Seitschritt |
+| Kreuz | E, linke Maustaste | schießen |
+| R2 | O, rechte Maustaste | Zielmodus halten |
+| L2 | Z (in der Datei `Y`) | ducken |
+| Kreis / Quadrat | R / Q | Waffe wechseln / – |
+| Dreieck | Esc, F | Blick nach oben, solange gehalten; Esc im Menü = zurück |
+| Start / Select | Return / rechte Umschalttaste | Pause / – |
+| Sticks (`ls_*`, `rs_*`) | nicht belegt | Mit dem Maus-Paket ist Spieler 1 ein analoges Pad, eine Taste auf Steuerkreuz *und* Stick würde doppelt zählen. |
 
-SDL-Tastennamen meinen US-Positionen. Die Taste **Z** einer QWERTZ-Tastatur heißt in der Datei deshalb `Y`.
-
-Die Smoke-Tests sind von der Belegung unabhängig, sie steuern über den Debug-Override (`press`/`set_input`). Ab M4 wird die Belegung Teil des Mod-Pakets `moh.input.mouse-keyboard`.
+- SDL-Tastennamen meinen US-Positionen. Die Taste **Z** einer QWERTZ-Tastatur heißt in der Datei deshalb `Y`.
+- **Maustasten:** `Mouse1` links, `Mouse2` Mitte, `Mouse3` rechts. Jede Eingabe nimmt bis zu zwei Tasten (`cross = E, Mouse1`).
+- **Esc mit dem Maus-Paket:** Bei eingefangener Maus gibt Esc zuerst die Maus frei und erreicht das Spiel nicht. Dreieck liegt deshalb zusätzlich auf F.
+- Die alte Belegung aus M2 liegt als `build-release\keybinds.ini.bak-m3`.
+- Die Smoke-Tests sind von der Belegung unabhängig, sie steuern über den Debug-Port (`press`/`set_input`, mit aktivem Paket über das virtuelle Host-Gamepad).
 
 ## Debug-Port
 

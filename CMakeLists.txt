@@ -84,3 +84,14 @@ add_test(NAME mouselook COMMAND moh_mouselook_test)
 target_sources(psx-runtime PRIVATE
     "${CMAKE_CURRENT_SOURCE_DIR}/src/mouse/mouselook.c"
     "${CMAKE_CURRENT_SOURCE_DIR}/src/mouse/moh_mouse_plugin.c")
+
+# Our keyboard + mouse layout (config/keybinds.ini) next to the exe, but only
+# where there is none yet: the runtime and the launcher's Controls page own
+# that file once it exists.
+add_custom_command(TARGET psx-runtime POST_BUILD
+    COMMAND ${CMAKE_COMMAND}
+        "-DSRC=${CMAKE_CURRENT_SOURCE_DIR}/config/keybinds.ini"
+        "-DDST=$<TARGET_FILE_DIR:psx-runtime>/keybinds.ini"
+        -P "${CMAKE_CURRENT_SOURCE_DIR}/cmake/copy_if_missing.cmake"
+    COMMENT "Staging keybinds.ini (only if missing)"
+    VERBATIM)
