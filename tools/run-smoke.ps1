@@ -3,10 +3,14 @@
 # 'all' runs boot, intro, menu, coverage and level in that order and stops at the first failure.
 # 'save' needs the local fixture card (a save made after Mission 1 Level 1); it is
 # skipped with a hint when the fixture is missing and is not part of 'all'.
+# 'sweep' jumps into every single-player level (~3 min each; -Mission N limits it,
+# -Bonus sweeps the MSN12 bonus levels instead); it is not part of 'all'.
 param(
     [ValidateSet('dev', 'release')][string]$Build = 'dev',
-    [ValidateSet('boot', 'intro', 'menu', 'coverage', 'level', 'save', 'all')][string]$Test = 'boot',
-    [int]$Port = 4370
+    [ValidateSet('boot', 'intro', 'menu', 'coverage', 'level', 'save', 'sweep', 'all')][string]$Test = 'boot',
+    [int]$Port = 4370,
+    [int]$Mission = 0,
+    [switch]$Bonus
 )
 
 . D:\RecompDev\dev-env.ps1
@@ -25,6 +29,14 @@ if ($Test -eq 'save') {
         exit 0
     }
     py -3 (Join-Path $repo 'tests\smoke\save_smoke.py') --exe $exe --cue $env:MOH_CUE --card $fixture --port $Port
+    exit $LASTEXITCODE
+}
+
+if ($Test -eq 'sweep') {
+    $sweepArgs = @('--exe', $exe, '--cue', $env:MOH_CUE, '--port', $Port)
+    if ($Mission -gt 0) { $sweepArgs += @('--mission', $Mission) }
+    if ($Bonus) { $sweepArgs += '--bonus' }
+    py -3 (Join-Path $repo 'tests\smoke\sweep_smoke.py') @sweepArgs
     exit $LASTEXITCODE
 }
 
