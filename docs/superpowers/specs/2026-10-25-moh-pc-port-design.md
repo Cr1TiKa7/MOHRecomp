@@ -119,7 +119,7 @@ Erst wenn ein Meilenstein erfüllt ist, beginnt der nächste. Jeder bekommt eine
 - **Ladeadresse und Einstiegspunkte:**
   - `SHELL.BIN` liegt an `0x80039F28`. Belegt ist das im RAM und im Lader-Code der Boot-EXE (`lui a1,0x8004` / `addiu a1,a1,0x9F28` bei `0x8003728C`). Seit M1 steht das im Rezept (`allow_missing`, die Pipeline findet die Funktionen selbst).
   - Die Overlays sind rohe Dateien ohne PS-X-Header. Das erste Wort ist 7 (`SHELL`), 5 (`LEVEL`) oder 6 (`LEVEL2P`).
-  - `LEVEL.BIN` ersetzt `SHELL.BIN` an derselben Basis `0x80039F28`. Belegt ist das im RAM nach NEW GAME, Briefing und Laden, bei M1. Ins Rezept kommt es in M2.
+  - `LEVEL.BIN` ersetzt `SHELL.BIN` an derselben Basis `0x80039F28`. Belegt ist das im RAM nach NEW GAME, Briefing und Laden, bei M1. Seit M2 steht es als zweites Image im Rezept, und Mission 1, Level 1 läuft mit 50 Bildern/s.
   - Wohin `LEVEL2P.BIN` geladen wird, wird in M3 geprüft.
 - **Übergangslösung:** Mit `[runtime] overlay_cache = true` wird Code beim Spielen eingefangen und mit `tools/compile_overlays.py` kompiliert. Was fehlt, läuft im Interpreter: korrekt, aber langsamer.
 - **Fortschritt messen:**

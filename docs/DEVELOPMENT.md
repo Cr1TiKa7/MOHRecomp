@@ -44,8 +44,11 @@ py -3 psxrecomp\psxrecomp_cli.py rebuild --config game.toml --project-root . --b
 # Unit-Tests der Test-Helfer
 py -3 -m unittest discover -s tests/smoke -v
 
-# Smoke-Tests gegen build-dev: einzeln (-Test boot|intro|menu|coverage) oder alle nacheinander
+# Smoke-Tests gegen build-dev: einzeln (-Test boot|intro|menu|coverage|level|save) oder alle nacheinander
 pwsh -File tools/run-smoke.ps1 -Build dev -Test all
+
+# Spielstand-Test (braucht das lokale Fixture, nicht Teil von "all")
+pwsh -File tools/run-smoke.ps1 -Build dev -Test save
 ```
 
 | Test | Prüft | Dauer |
@@ -54,6 +57,10 @@ pwsh -File tools/run-smoke.ps1 -Build dev -Test all
 | `intro` | Intro-Video bekommt MDEC-Daten, SPU-Ausgang hörbar (RMS ≥ 200) | ~45 s |
 | `menu` | Spiel hat die Speicherkarte abgefragt (`sio_state`), Hauptmenü-Ring (6 Einträge), Options öffnen und mit Dreieck verlassen | ~2 min |
 | `coverage` | Ohne Runtime-Autocompile und ohne DLL-Cache: Loader aktiv, keine DLL lief, Interpreter-Anteil < 1 %, statischer Overlay-Code lief. Danach NEW GAME mit X durchs Briefing, bis `LEVEL.BIN` an `0x80039F28` liegt, und das Spiel läuft weiter. | ~3 min |
+| `level` | Mission 1, Level 1 ohne Autocompile: wartet, bis das Ladeplakat weg ist. Bildrate ≥ 48 (Median aus 3 × 5 s), Ton, UP verändert das Bild deutlich stärker als Stillstand, 2 min Laufen/Drehen/Schießen ohne Hänger, Interpreter-Anteil im Level-Fenster < 1 %. | ~4 min |
+| `save` | Lädt das Fixture `D:\RecompDev\fixtures\moh-m1l1-complete.mcd` über WAR RECORDS → LOAD GAME. Der Spielername steht vorher nicht im Spielspeicher, danach schon. Die Karte wurde gelesen, das Spiel läuft weiter, das Fixture bleibt unverändert. | ~2 min |
+
+**Fixture:** Die Karte stammt aus einem echten Durchlauf von Mission 1, Level 1 im Release-Build, gespeichert am 2026-10-26 als `BESLES-02470PASCAL0`. Sie liegt nur lokal und kommt nie ins Repo. Neu erzeugen: Level durchspielen, speichern, `saves\card1.mcd` dorthin kopieren.
 
 Die Tests starten das Spiel mit `SDL_AUDIODRIVER=dummy`, es ist also nichts zu hören. Die gemessenen Audio-Abgriffe liegen vor dem Ausgabegerät. `PSX_HOST_MUTE` wirkt in dieser Runtime nicht.
 
@@ -63,10 +70,11 @@ Die Tests starten das Spiel mit `SDL_AUDIODRIVER=dummy`, es ist also nichts zu h
 
 ## Overlays vorab nativ (`aot/overlays.json`)
 
-`SHELL.BIN` (Menüs) wird aus den Disc-Daten vorab kompiliert:
-- Ladeadresse `0x80039F28`, belegt durch den Lader-Code der Boot-EXE (Check `words`)
+`SHELL.BIN` (Menüs) und `LEVEL.BIN` (Einzelspieler-Level) werden aus den Disc-Daten vorab kompiliert:
+- Beide liegen abwechselnd an derselben Ladeadresse `0x80039F28`. Belegt ist das durch den Lader-Code der Boot-EXE (Check `words`) und im RAM. Die Byte-Guards der Runtime wählen das richtige Image.
 - gebunden an den SHA-256 des Datentracks
-- `generate` baut daraus `generated/overlays_static*.c`, die `CMakeLists.txt` linkt es über `GAME_OVERLAY_STATIC_C`
+- `generate` baut daraus `generated/overlays_static*.c` (SHELL 15.270 + LEVEL 14.208 native Einstiege), die `CMakeLists.txt` linkt es über `GAME_OVERLAY_STATIC_C`
+- Ergebnis: Menü und Level laufen mit 50 Bildern/s. Ohne `LEVEL.BIN` im Rezept lief das Level interpretiert mit ~33.
 
 Bei einer anderen Disc bricht die Pipeline mit „not applicable“ ab. Prüfen ohne Build:
 
