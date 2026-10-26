@@ -7,7 +7,8 @@ Usage (from anywhere):
 Runtime autocompile is off and the DLL cache deleted, so overlay code runs
 either from the static shard or interpreted. Three phases, each measured as the
 sum of its own windows (never since-boot totals):
-  videos - boot without turbo (EA logo + intro film), then BRIEFING replayed
+  videos - boot without turbo (EA logo + intro film), then the ~108 s BRIEFING
+           film replayed; each replay must feed the MDEC and return to the menu
   menus  - main-menu ring, OPTIONS / WAR RECORDS / GALLERY opened and browsed
   levels - M1L1, M3L1 and M7L1 (jumped to via the game state), input loop
 Each phase must stay below MAX_SHARE interpreted overlay dispatches.
@@ -31,7 +32,11 @@ REPO_ROOT = os.path.normpath(os.path.join(os.path.dirname(os.path.abspath(__file
 GAME_ID = "SLES-02470"
 MAX_SHARE = 0.01
 LEVELS = ((1, 1), (3, 1), (7, 1))
-BRIEFING_SECS = 30.0
+# BRIEFING plays a ~108 s film, then the main menu is back with NEW GAME
+# selected; RIGHT does nothing during the film (verified 2026-10-26).
+BRIEFING_POLL_SECS = 2.0
+BRIEFING_MAX_SECS = 180.0
+MIN_FILM_WORDS = 1_000_000   # one full BRIEFING fed ~6.97 M words to the MDEC
 SUBMENUS = ("OPTIONS", "WAR RECORDS", "GALLERY")
 SmokeFailure = psxrun.SmokeFailure
 KEYS = ("native", "static", "interp", "insns")
@@ -51,6 +56,37 @@ def accumulate(segments):
 def share(delta):
     total = delta["native"] + delta["static"] + delta["interp"]
     return delta["interp"] / total if total else 1.0
+
+
+def film_words(samples):
+    """MDEC words fed during a film, from successive mdec_state.dma_in_words samples.
+
+    The counter keeps the previous film's total until the next film starts and
+    then restarts near zero, so a drop counts as a fresh start.
+    """
+    return sum(b - a if b >= a else b for a, b in zip(samples, samples[1:]))
+
+
+def mdec_words(port):
+    return int(psxdbg.send("mdec_state", port=port).get("dma_in_words", 0))
+
+
+def play_briefing(port, base, deadline):
+    """Play the BRIEFING film once and wait until the menu is back; returns its MDEC words."""
+    flows.goto(port, moh.MENU_RING.index("BRIEFING"), base, deadline)
+    briefing = flows.entry_ptr(port)
+    samples = [mdec_words(port)]
+    psxrun.press(port, "cross")
+    end = min(deadline, time.monotonic() + BRIEFING_MAX_SECS)
+    while flows.entry_ptr(port) == briefing:
+        if time.monotonic() > end:
+            raise SmokeFailure(f"BRIEFING did not return to the main menu within {BRIEFING_MAX_SECS:.0f} s")
+        time.sleep(BRIEFING_POLL_SECS)
+        samples.append(mdec_words(port))
+    words = film_words(samples)
+    if words < MIN_FILM_WORDS:
+        raise SmokeFailure(f"BRIEFING fed only {words} words to the MDEC: no film played")
+    return words
 
 
 def report(totals, phases):
@@ -86,12 +122,13 @@ def videos_and_menus(args, out_root, window, segments):
         end = time.monotonic() + window
         psxrun.wait_frame(port, moh.MENU_READY_FRAME, deadline)
         base, _, _ = flows.walk_ring(port, deadline)
+        films = 0
         while time.monotonic() < end:                           # ... then BRIEFING replays
-            flows.goto(port, moh.MENU_RING.index("BRIEFING"), base, deadline)
-            psxrun.press(port, "cross")
-            time.sleep(BRIEFING_SECS)
+            play_briefing(port, base, deadline)
+            films += 1
             base, _, _ = flows.walk_ring(port, deadline)
         segments.append(("videos", c0, flows.overlay_counters(port)))
+        print(f"coverage_long: videos: boot intro + {films} BRIEFING film(s)", flush=True)
 
         c0 = flows.overlay_counters(port)                       # menus
         end = time.monotonic() + window

@@ -5,12 +5,14 @@ import io
 import os
 import sys
 import tempfile
+import time
 import unittest
 from unittest import mock
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
 import coverage_long  # noqa: E402
+from fakes import FakeServer  # noqa: E402
 
 
 def c(native, static, interp, insns):
@@ -33,6 +35,60 @@ class AccumulateTests(unittest.TestCase):
 
     def test_empty_phase_counts_as_fully_interpreted(self):
         self.assertEqual(coverage_long.share(c(0, 0, 0, 0)), 1.0)
+
+
+class FilmTests(unittest.TestCase):
+    """BRIEFING is a ~108 s film; mdec_state.dma_in_words restarts at each film."""
+
+    def test_film_words_counts_across_the_restart(self):
+        # Measured 2026-10-26: stale intro count, restart at 64, film end at 6968160.
+        samples = [11138624, 11138624, 64, 15936, 367136, 6968160, 6968160]
+        self.assertEqual(coverage_long.film_words(samples), 6968160)
+
+    def test_no_film_counts_nothing(self):
+        self.assertEqual(coverage_long.film_words([11138624] * 5), 0)
+
+    def _briefing_server(self, mdec, polls_until_menu):
+        """Entry pointer stays on BRIEFING for polls_until_menu reads after X, then NEW GAME."""
+        base = 0x801A93D8
+        briefing = base + coverage_long.moh.MENU_RING.index("BRIEFING") * 0x274
+        state = {"pressed": False, "reads": 0, "mdec": iter(mdec)}
+
+        def reply(request):
+            cmd = request["cmd"]
+            if cmd == "press":
+                state["pressed"] = True
+            elif cmd == "mdec_state":
+                return {"id": 1, "ok": True, "dma_in_words": next(state["mdec"])}
+            elif cmd == "read_ram":
+                if state["pressed"]:
+                    state["reads"] += 1
+                ptr = base if state["reads"] > polls_until_menu else briefing
+                return {"id": 1, "ok": True, "hex": ptr.to_bytes(4, "little").hex()}
+            return {"id": 1, "ok": True}
+
+        srv = FakeServer(reply)
+        self.addCleanup(srv.close)
+        return srv, base
+
+    def test_briefing_waits_for_the_menu_and_counts_the_film(self):
+        srv, base = self._briefing_server([500, 500, 64, 3000000, 6968160, 6968160], polls_until_menu=4)
+        with mock.patch.object(coverage_long, "BRIEFING_POLL_SECS", 0):
+            words = coverage_long.play_briefing(srv.port, base, time.monotonic() + 5)
+        self.assertEqual(words, 6968160)
+
+    def test_briefing_without_film_fails(self):
+        srv, base = self._briefing_server([500] * 10, polls_until_menu=4)
+        with mock.patch.object(coverage_long, "BRIEFING_POLL_SECS", 0), \
+                self.assertRaisesRegex(coverage_long.SmokeFailure, "no film"):
+            coverage_long.play_briefing(srv.port, base, time.monotonic() + 5)
+
+    def test_briefing_that_never_returns_fails(self):
+        srv, base = self._briefing_server([64] * 1000, polls_until_menu=10 ** 9)
+        with mock.patch.object(coverage_long, "BRIEFING_POLL_SECS", 0.01), \
+                mock.patch.object(coverage_long, "BRIEFING_MAX_SECS", 0.3), \
+                self.assertRaisesRegex(coverage_long.SmokeFailure, "did not return"):
+            coverage_long.play_briefing(srv.port, base, time.monotonic() + 5)
 
 
 class FailureReportTests(unittest.TestCase):

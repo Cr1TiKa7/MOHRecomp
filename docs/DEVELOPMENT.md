@@ -66,7 +66,7 @@ pwsh -File tools/run-smoke.ps1 -Build dev -Test coverage-long      # je 10 min V
 | `save` | Lädt das Fixture `D:\RecompDev\fixtures\moh-m1l1-complete.mcd` über WAR RECORDS → LOAD GAME. Der Spielername steht vorher nicht im Spielspeicher, danach schon. Die Karte wurde gelesen, das Spiel läuft weiter, das Fixture bleibt unverändert. | ~2 min |
 | `sweep` | Pro Level eine eigene Instanz ohne Autocompile: Sprung ins Level (siehe „Level-Sprung“), 30 s Laufen/Drehen/Schießen. Das Level hat seine eigenen Daten gelesen (bei allen außer M1L1 keine von M1L1), das Bild ändert sich weiter, Interpreter-Anteil < 1 %. Eine Zeile pro Level, bricht nie vorzeitig ab. `-Bonus` springt stattdessen in die MSN12-Ordner. | ~3 min pro Level |
 | `mp` | Ohne Autocompile: steckt über den Debug-Port einen Controller in Port 2, MULTIPLAYER → START GAME. `LEVEL2P.BIN` liegt an `0x80039F28`, jeder Controller dreht nur seine Bildhälfte (Spieler 1 oben), 60 s beide Spieler aktiv, `/DATA/TWOPLAYR/` gelesen, Interpreter-Anteil < 1 %. | ~4 min |
-| `coverage-long` | Ohne Autocompile je 10 min Videos (Boot ohne Turbo, dann BRIEFING in Schleife), Menüs (Ring, OPTIONS, WAR RECORDS, GALLERY) und Levels (M1L1, M3L1, M7L1). Jede Phase zählt nur ihre eigenen Fenster und muss < 1 % interpretiert bleiben. | ~35 min |
+| `coverage-long` | Ohne Autocompile je 10 min Videos (Boot ohne Turbo, dann der ~108-s-Film unter BRIEFING in Schleife; jeder Durchlauf muss MDEC-Daten liefern und ins Menü zurückkehren), Menüs (Ring, OPTIONS, WAR RECORDS, GALLERY) und Levels (M1L1, M3L1, M7L1). Jede Phase zählt nur ihre eigenen Fenster und muss < 1 % interpretiert bleiben. | ~35 min |
 
 **Fixture:** Die Karte stammt aus einem echten Durchlauf von Mission 1, Level 1 im Release-Build, gespeichert am 2026-10-26 als `BESLES-02470PASCAL0`. Sie liegt nur lokal und kommt nie ins Repo. Neu erzeugen: Level durchspielen, speichern, `saves\card1.mcd` dorthin kopieren.
 
@@ -96,7 +96,7 @@ py -3 psxrecomp\tools\aot_overlay_pipeline.py extract --profile aot\overlays.jso
 
 Der Spielstand liegt in der Boot-EXE und überlebt den Wechsel der Overlays: Missionsindex an `0x800387F8`, Levelindex an `0x800387FC`, beide ab 0. `flows.start_level` startet NEW GAME, schreibt nach 3 s beide Werte und drückt X durch Videos und Briefing. `LEVEL.BIN` lädt dann das gewählte Level (Pfadformat `data\msn%ld\lvl%ld\…`). Das Briefing zeigt trotzdem das von Mission 1. Früher geschrieben überschreibt das Spiel die Werte beim Zurücksetzen.
 
-Die Missionsordner auf der Disc sind MSN1–5, MSN7 und MSN9 (MSN9 ohne LVL3), zusammen 24 Levels. MSN12 hat sieben Ordner mit je drei Dateien. Der Splitscreen lädt seine Standardkarte aus MSN12/LVL4, es sind also sehr wahrscheinlich die Mehrspieler-Karten. Die Sektorbereiche aller Levels stehen in `tests/smoke/moh.py`.
+Die Missionsordner auf der Disc sind MSN1–5, MSN7 und MSN9 (MSN9 ohne LVL3), zusammen 24 Levels. MSN12 hat sieben Ordner mit je drei Dateien. Der Splitscreen lädt seine Standardkarte aus MSN12/LVL4, und ein Sprung mit Missionsindex 11 lädt nach NEW GAME `LEVEL2P.BIN` statt `LEVEL.BIN` (`-Test sweep -Bonus`: 0/7, alle mit Overlay-Wort 6). Es sind also die Mehrspieler-Karten, im Einzelspieler nicht spielbar. Die Sektorbereiche aller Levels stehen in `tests/smoke/moh.py`.
 
 ## Splitscreen
 
@@ -143,7 +143,7 @@ Nur im Dev-Build. Pro TCP-Verbindung geht genau eine JSON-Zeile hin und eine zur
 Fallstricke:
 - `ping` beantwortet ein I/O-Thread ohne Bildzähler. Die Bildnummer liefert `frame`.
 - `audio_wav` mit `start < 0` liefert die ältesten Samples. Für die jüngsten muss man `start = audio_stats.taps[i].frames - count` übergeben.
-- `mdec_state.decode_macroblocks` gilt pro Bild. Fortlaufend zählt `dma_in_words`.
+- `mdec_state.decode_macroblocks` gilt pro Bild, `dma_in_words` pro Film: Der Zähler behält den Stand des letzten Films und fängt beim nächsten Film wieder bei fast null an (`coverage_long.film_words`).
 - `psxdbg.send` wirft bei `{"ok": false}` keinen Fehler. Wo es zählt, die Antwort prüfen.
 - `send(…, port=…)` ist der TCP-Port. Das Feld `port` eines Befehls (Controller-Port bei `set_input`/`press`/`clear_input`) gehört in `payload=`.
 - Ein `clear_input` ohne `port` beendet auch die Eingabe für Port 2 und zieht damit den Test-Controller dort ab. Für Spieler 1 allein: `payload={"port": 1}`.

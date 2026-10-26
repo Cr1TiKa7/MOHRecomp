@@ -6,7 +6,10 @@ Found on the dev build (2026-10-25); see docs/superpowers/plans/2026-10-25-moh-m
 # Unaided boot reaches the main menu around frame 5500 (50 frames/s).
 MENU_READY_FRAME = 5700
 
-# Main-menu ring in RIGHT order.
+# Main-menu ring in RIGHT order. BRIEFING plays a ~108 s film and returns with
+# NEW GAME selected, as do OPTIONS / WAR RECORDS / GALLERY on TRIANGLE (GALLERY
+# holds films too: HISTORY, MAKING OF). After ~30 s idle in the main menu an
+# attract film starts (verified 2026-10-26).
 MENU_RING = ("NEW GAME", "WAR RECORDS", "BRIEFING", "MULTIPLAYER", "GALLERY", "OPTIONS")
 
 # The menu keeps a pointer to the current ring entry (tools/ramdiff.py on six
@@ -56,8 +59,10 @@ LEVELS = (
     (7, 1, (92107, 96662)), (7, 2, (96664, 101218)), (7, 3, (101220, 108049)),
     (9, 1, (108052, 112028)), (9, 2, (112030, 116060)), (9, 4, (116062, 118325)),
 )
-# /DATA/MSN12/LVL1-7: three files per level only. The split screen loads its
-# default arena from LVL4, so these are most likely the multiplayer arenas.
+# /DATA/MSN12/LVL1-7: three files per level only: the multiplayer arenas. The
+# split screen loads its default arena from LVL4, and NEW GAME with mission
+# index 11 loads LEVEL2P.BIN instead of LEVEL.BIN (sweep --bonus: 0/7, overlay
+# word 6 every time), so they are not playable in single player.
 BONUS_LEVELS = (
     (12, 1, (15210, 15788)), (12, 2, (15790, 16376)), (12, 3, (16378, 16979)),
     (12, 4, (16981, 17610)), (12, 5, (17612, 23592)), (12, 6, (23594, 24155)),

@@ -34,7 +34,8 @@ def _fail(msg):
 
 
 def _mdec_words(port):
-    # decode_macroblocks is reset per decoded picture; dma_in_words is cumulative.
+    # decode_macroblocks is reset per decoded picture; dma_in_words counts per
+    # film and restarts near zero when the next film starts.
     return int(psxdbg.send("mdec_state", port=port)["dma_in_words"])
 
 
@@ -44,7 +45,7 @@ def check_intro(proc, port, out_dir, deadline):
     m1 = _mdec_words(port)
     time.sleep(2.0)
     m2 = _mdec_words(port)
-    if m2 <= m1:
+    if m2 == m1:   # a drop means the next film started, which is decoding too
         raise psxrun.SmokeFailure(f"video not decoding (mdec dma_in_words {m1} -> {m2})")
     wav = os.path.join(out_dir, "intro.wav").replace("\\", "/")
     # audio_wav with start < 0 dumps from the OLDEST sample in the ring; the
