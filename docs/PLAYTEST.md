@@ -20,9 +20,9 @@ Die Nummern sind die Ordner auf der Disc (`DATA\MSN<m>\LVL<l>`). Im Spiel heiße
 
 | Level | Gespielt | Abschluss | Auffälligkeiten |
 |---|---|---|---|
-| MSN1 LVL1 | 2026-10-26 | ja | gespielt im M2-Build (vor Splitscreen-Umbau und Seeds) |
-| MSN1 LVL2 | | | |
-| MSN1 LVL3 | | | |
+| MSN1 LVL1 | 2026-10-26 | ja | zuerst im M2-Build, dann erneut im M3-Release-Build: keine, Ton in Ordnung; ohne Maus schwer zu navigieren (M4) |
+| MSN1 LVL2 | 2026-10-26 | ja | keine, Ton in Ordnung; ohne Maus schwer zu navigieren (M4) |
+| MSN1 LVL3 | 2026-10-26 | ja | keine, Ton in Ordnung; ohne Maus schwer zu navigieren (M4) |
 | MSN2 LVL1 | | | |
 | MSN2 LVL2 | | | |
 | MSN2 LVL3 | | | |
