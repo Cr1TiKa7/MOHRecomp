@@ -131,8 +131,12 @@ static void live_set(void) {
 
 static void eligible(void) {
     CHECK(moh_look_eligible(5, 0, 100, 98, 1) == 1);
-    CHECK(moh_look_eligible(5, 0, 100, 96, 1) == 1);
-    CHECK(moh_look_eligible(5, 0, 100, 95, 1) == 0);
+    /* A slow game frame (5+ VBlanks) or an R2 transition must not count as
+     * leaving gameplay: that releases the captured mouse mid-fight and the
+     * next click only recaptures instead of firing. */
+    CHECK(moh_look_eligible(5, 0, 100, 90, 1) == 1);
+    CHECK(moh_look_eligible(5, 0, 100, 88, 1) == 1);
+    CHECK(moh_look_eligible(5, 0, 100, 87, 1) == 0);
     CHECK(moh_look_eligible(6, 0, 100, 99, 1) == 0);
     CHECK(moh_look_eligible(5, 0, 100, 99, 0) == 0);
     CHECK(moh_look_eligible(5, 1, 100, 99, 1) == 0);

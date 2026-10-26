@@ -121,10 +121,12 @@ Gefunden in Mission 1 Level 1 (M4, 2026-10-26) mit `wtrace_*` und `disasm`. Die 
 - **Gier:** Spieler + 0x184, 16.16-Festkomma, 4096 Winkeleinheiten pro Umdrehung, ohne Umbruch.
   - Geschrieben wird sie einmal pro Spiel-Frame bei `0x800801E0` (`SW $v0, 388($s0)`, Gier += Drehrate).
   - Die Stelle schreibt nur die Gier des Spielers. In der Pause läuft sie nicht.
-- **Zielmodus** (R2 halten): Fadenkreuz erscheint, Steuerkreuz hoch/runter zielt, die Figur läuft nicht. R2 loslassen setzt das Fadenkreuz zurück, die Kamera schwenkt langsam zurück.
-  - **Fadenkreuz:** Spieler + 0x17C, 0 = Mitte, negativ = oben, Grenzen ±983 040.
-  - **Kamera-Neigung:** Spieler + 0x178, 16.16, positiv = oben, Grenzen ±0x02AA0000 (etwa 60°).
-  - Beides speist eine Rate in `$a0` (`0x8007FE80`): Innerhalb der Grenze wandert das Fadenkreuz (+ Rate >> 3), am Rand kippt die Kamera (− Rate >> 1). Der Blickwinkel ändert sich in beiden Fällen um Rate / 2.
+- **Zielmodus** (R2 halten): Das Fadenkreuz erscheint, die Figur läuft nicht. Die Gier-Schreibstelle oben läuft dann nicht, die Zielfunktion übernimmt beide Achsen.
+  - Gezielt wird mit digitalem Pad über das Steuerkreuz, mit analogem Pad über den linken Stick.
+  - Jede Achse lädt eine Rate aus `16($sp)`: waagerecht bei `0x8007FC94` (`LW $v0`), senkrecht bei `0x8007FE7C` (`LW $a0`). An diesen beiden Stellen hängt das Maus-Plugin.
+  - **Waagerecht:** Fadenkreuz X bei Spieler + 0x188 (+ Rate >> 3). Am Rand dreht die Ansicht, Gier += Rate (Schreibstelle `0x8007FD7C`).
+  - **Senkrecht:** Fadenkreuz Y bei Spieler + 0x17C (0 = Mitte, negativ = oben, Grenzen ±983 040, + Rate >> 3). Am Rand kippt die Kamera: Spieler + 0x178, 16.16, positiv = oben, Grenzen ±0x02AA0000 (etwa 60°), − Rate >> 1.
+  - **R2 loslassen** setzt das Fadenkreuz auf 0 (`0x80080028`). Mit digitalem Pad kippt die Kamera in etwa 1 s zurück, mit analogem Pad (also mit dem Maus-Paket) bleibt die Neigung stehen.
 - **Außerhalb des Zielmodus** gibt es keinen Nickwinkel. Vertikal zielt das Spiel selbst, wenn EASY AIM an ist (Options → Controller).
 
 | PS1-Taste (Belegung 1) | Wirkung im Level |
@@ -173,11 +175,12 @@ Das Mod-Paket liegt unter `mods/preloaded/packages/moh.input.mouse-keyboard/` un
   - Die Hook-Stellen stehen in `game.toml` (`mod_instruction_sites`). Nach Änderungen dort `generate` und neu bauen.
 - **Debug:**
   - `{"cmd":"mod_cmd","name":"moh_mouse","args":"move <dx> <dy>"}` speist Mausimpulse ein. Die echte Maus-Erfassung ist unter Debug-Eingaben und im versteckten Fenster aus.
-  - `mod_counters` zeigt `moh_mouse.activate`, `.yaw_hook`, `.aim_x_hook`, `.aim_y_hook` und `.dropped` (verworfene Bewegung außerhalb des Spiels).
+  - `mod_counters` zeigt `moh_mouse.activate`, `.yaw_hook`, `.aim_x_hook`, `.aim_y_hook`, `.acquired` (wie oft ein Klick die Maus eingefangen hat) und `.dropped` (per `move` eingespeiste Bewegung, die außerhalb des Spiels verworfen wurde; echte Mausbewegung verwirft die Runtime selbst).
+  - Als „im Spiel“ gilt: `LEVEL.BIN` geladen und ein Hook lief in den letzten 12 VBlanks (240 ms). Danach gibt die Runtime die Maus frei.
 - **Tests mit aktivem Paket:**
   - Ohne Achswerte schickt der Debug-Override jede Richtung doppelt ans Spiel, sobald Spieler 1 analog ist.
-  - Die Helfer in `psxrun` schicken deshalb immer zentrierte Achsen.
-  - Mit `MOH_SMOKE_PAD_LAYER=host` steuern sie Pad 1 über das virtuelle Host-Gamepad, das wie ein echtes Pad zählt.
+  - Die Helfer in `psxrun` schicken deshalb immer zentrierte Achsen. Das allein reicht nicht: Auch mit zentrierten Achsen zählt der einfache Override jeden Menüschritt doppelt, solange das Paket an ist.
+  - Deshalb muss `MOH_SMOKE_PAD_LAYER=host` gesetzt sein, wenn `menu`, `mp`, `sweep` oder andere Tests mit aktivem Paket laufen. Dann steuern die Helfer Pad 1 über das virtuelle Host-Gamepad, das wie ein echtes Pad zählt. `-Test mouse` setzt das selbst.
 
 ## Tastaturbelegung (`config/keybinds.ini`)
 

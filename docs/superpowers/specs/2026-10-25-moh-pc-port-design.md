@@ -137,7 +137,12 @@ Umgesetzt in M4, Plan `docs/superpowers/plans/2026-10-26-moh-m4-mouse-keyboard.m
 - Die Maus-API der Runtime (`psx_mod_set_local_mouse_policy`) liefert relative Bewegungen mit Bruchteilen.
 - Mit `psx_mod_set_local_mouse_persistent_capture(1)` fängt ein Klick die Maus ein, Esc gibt sie frei.
 - Den rechten Analogstick nutzt das Plugin nicht, `patches/psxrecomp/` bleibt leer.
-- Die API fängt nur bei analog gemeldetem Spieler 1 ein. Das Paket meldet ihn deshalb als DualShock (`psx_mod_set_controller_mode_override`). Ein Gamepad funktioniert damit weiter, Steuerkreuz und Tasten wie bisher, zusätzlich die Sticks, so wie beim Original mit DualShock. Ist das Paket aus, bleibt alles digital.
+- Die API fängt nur bei analog gemeldetem Spieler 1 ein. Das Paket meldet ihn deshalb als DualShock (`psx_mod_set_controller_mode_override`). Ein Gamepad funktioniert damit weiter, aber wie beim Original mit DualShock:
+  - Tasten wie bisher, die Sticks wirken zusätzlich.
+  - Im Zielmodus zielt der Stick, nicht mehr das Steuerkreuz.
+  - Die Kameraneigung bleibt nach dem Zielen stehen, statt zurückzukippen.
+
+  Das geht über die freigegebene Abweichung 4 hinaus („Steuerkreuz und Tasten wirken wie bisher“), festgestellt bei der Umsetzung. Ist das Paket aus, bleibt alles digital wie in M3.
 
 **Was das Spiel vorgibt** (Erkundung M4, Werte in `tests/smoke/moh.py`):
 - **Normales Spielen:** nur Gier, 16.16-Festkomma im Spieler-Struct. Vertikal zielt das Spiel selbst (Option EASY AIM).

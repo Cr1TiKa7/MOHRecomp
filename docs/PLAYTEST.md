@@ -78,4 +78,5 @@ Im Release-Build (`build-release\MOH_Recompiled.exe`). Die neue Tastenbelegung l
 7. **Tasten:** W/S laufen, A/D Seitschritt, Pfeile drehen, Z ducken, Linksklick und E schießen, R Waffe wechseln, F Blick nach oben, Return Pause. Passt etwas nicht? ______
 8. **Menüs mit der Tastatur:** Ein Tastendruck = genau ein Schritt im Menü? ______
 9. **EASY AIM** (Options → Controller) einmal an und einmal aus. Was ist dir lieber? ______
-10. **Gamepad:** ein paar Minuten nur mit dem Pad, bei eingeschaltetem Paket (die Sticks wirken dann zusätzlich). Alles wie gewohnt? ______
+10. **Gamepad:** ein paar Minuten nur mit dem Pad, bei eingeschaltetem Paket. Das Pad verhält sich dann wie ein DualShock am Original: Die Sticks wirken zusätzlich, im Zielmodus zielt nur noch der linke Stick (nicht das Steuerkreuz), und die Neigung bleibt nach dem Zielen stehen. Ist das für dich in Ordnung? ______
+11. **Maus verloren?** Gibt das Spiel die Maus mitten im Spiel frei, ohne Pause, Menü oder Zwischensequenz, sodass der nächste Klick nicht schießt? Wenn ja: wo und wie oft? ______

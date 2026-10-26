@@ -9,7 +9,10 @@
 #define MOH_LOOK_SENS_MIN 1
 #define MOH_LOOK_SENS_MAX 200
 #define MOH_LOOK_FIXED_PER_COUNT 1024   /* 16.16 yaw per mouse count at sensitivity 1 */
-#define MOH_LOOK_STALE_VBLANKS 4        /* hook older than this: not in gameplay */
+/* Hook older than this (240 ms): not in gameplay, the policy releases the
+ * mouse. Wide enough for slow game frames and R2 transitions; a pause or
+ * menu still ends gameplay within a quarter second. */
+#define MOH_LOOK_STALE_VBLANKS 12
 #define MOH_LOOK_YAW_MAX (2048 << 16)   /* at most half a turn per game frame */
 /* The game adds rate >> 3 to a crosshair coordinate and shifts that left by
  * 7 or 8 before clamping it, so a rate beyond this would overflow its 32-bit

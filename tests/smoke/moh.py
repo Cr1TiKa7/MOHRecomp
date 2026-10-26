@@ -106,7 +106,9 @@ YAW_STORE_WORD = 0xAE020184
 #   clamped to PITCH_MIN..PITCH_MAX; past it the camera tilt (+0x178, 16.16,
 #   positive = up, TILT_MIN..TILT_MAX = 0xFD560000..0x02AA0000, about 60
 #   degrees) moves by -(rate >> 1), so AIM_Y_RATE_PER_FIXED = 2.
-# Releasing R2 writes pitch 0 (0x80080028); the game recentres the tilt.
+# Releasing R2 writes pitch 0 (0x80080028). A digital pad then recentres the
+# tilt within about a second; an analog pad (the mouse package) keeps it, and
+# with an analog pad the stick aims instead of the d-pad.
 # Outside aim mode the game has no pitch (EASY AIM aims vertically).
 PLAYER_AIM_X_OFFSET = 0x188
 PLAYER_PITCH_OFFSET = 0x17C

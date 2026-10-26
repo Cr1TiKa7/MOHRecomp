@@ -58,6 +58,8 @@ static void policy_event(const PSXModMouseEvent *event) {
         moh_look_motion(&g_look, event->dx, event->dy);
     else if (event->type == PSX_MOD_MOUSE_RESET)
         moh_look_reset(&g_look);
+    else if (event->type == PSX_MOD_MOUSE_ACQUIRED)
+        psx_mod_counter_add("moh_mouse.acquired", 1);   /* playtests: how often a click recaptured */
 }
 
 static void policy_sample(uint64_t now_ns, PSXModMouseOutput *output) {

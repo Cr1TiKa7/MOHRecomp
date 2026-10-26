@@ -14,7 +14,7 @@ game_id = "SLES-02470"
 [[feature]]
 id = "mouse-look"
 name = "Mouse Look"
-description = "Click into the game window to capture the mouse, press Esc to release it. Player 1 is presented as an analog pad while this is on; pad buttons and the d-pad work as before."
+description = "Click into the game window to capture the mouse, press Esc to release it. Player 1 is presented as an analog (DualShock) pad while this is on, which changes pad play as on an original DualShock: buttons work as before and the sticks also work, but in aim mode the stick aims instead of the d-pad, and the view keeps its tilt after aiming."
 group = "Input"
 default_enabled = false
 
