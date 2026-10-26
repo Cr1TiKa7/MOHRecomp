@@ -146,6 +146,16 @@ class PsxDbgTests(unittest.TestCase):
         finally:
             srv.close()
 
+    def test_payload_may_carry_port(self):
+        # The debug command's own "port" field (pad port) cannot be a kwarg:
+        # send()'s port= is the TCP port.
+        srv = FakeServer({"id": 1, "ok": True})
+        try:
+            psxdbg.send("press", port=srv.port, payload={"port": 2, "buttons": 0xFFFF})
+        finally:
+            srv.close()
+        self.assertEqual(srv.seen, [{"id": 1, "cmd": "press", "port": 2, "buttons": 0xFFFF}])
+
     def test_send_no_listener_raises(self):
         with self.assertRaises(ConnectionError):
             psxdbg.send("ping", port=_free_port(), timeout=1.0)

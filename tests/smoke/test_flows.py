@@ -182,6 +182,45 @@ class WalkRingSizeTests(unittest.TestCase):
         self.assertEqual(sum(1 for r in srv.seen if r["cmd"] == "press"), 3)
 
 
+class StartLevelTests(unittest.TestCase):
+    """Level jump: write 0-based indexes into the persistent game state after NEW GAME."""
+
+    def test_start_level_writes_zero_based_indexes(self):
+        from unittest import mock
+        import moh
+
+        ram = {moh.STATE_MISSION_ADDR: 0, moh.STATE_LEVEL_ADDR: 0}
+        base = 0x801A93D8
+
+        def reply(request):
+            cmd = request["cmd"]
+            if cmd == "write_ram":
+                ram[int(request["addr"], 16)] = request["val"]
+                return {"id": 1, "ok": True}
+            if cmd == "read_ram":
+                addr, n = int(request["addr"], 16), request["len"]
+                if addr == moh.MENU_ITEM_PTR_ADDR:
+                    value = base                                   # NEW GAME selected
+                elif addr == moh.SHELL_LOAD_ADDR:
+                    value = moh.LEVEL_FILE_ID                      # LEVEL.BIN already there
+                else:
+                    value = ram.get(addr, 0)
+                return {"id": 1, "ok": True, "hex": value.to_bytes(4, "little")[:n].hex()}
+            if cmd == "cd_read_log":
+                return {"id": 1, "ok": True, "total": 77, "count": 1, "entries": []}
+            return {"id": 1, "ok": True}
+
+        srv = FakeServer(reply)
+        try:
+            with mock.patch.object(flows, "NEW_GAME_SETTLE_SECS", 0):
+                mark = flows.start_level(srv.port, base, 2, 1, time.monotonic() + 10)
+        finally:
+            srv.close()
+        writes = [(r["addr"], r["val"]) for r in srv.seen if r["cmd"] == "write_ram"]
+        self.assertEqual(writes, [("0x800387F8", 1), ("0x800387FC", 0)])
+        self.assertEqual(mark, 77)
+
+
 class CdReadsTests(unittest.TestCase):
     """cd_read_log logs the start LBA of each read; count only reads since a mark."""
 

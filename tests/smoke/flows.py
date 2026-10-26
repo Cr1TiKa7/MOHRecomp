@@ -19,6 +19,7 @@ ACTIVATION_TRIES = 10
 MAX_RING = 10
 NUDGE_SECS = 3.0
 LEVEL_LOAD_SECS = 120.0   # FMVs + briefing + loading took ~15-40 s with X every 3 s
+NEW_GAME_SETTLE_SECS = 3.0   # NEW GAME has reset the game state by then (first FMV running)
 IN_LEVEL_DIFF = 10.0      # poster vs. poster < 1 (progress bar); poster vs. level 34-104 (M1L2/M1L1)
 
 
@@ -168,6 +169,24 @@ def wait_until_in_level(port, out_dir, deadline, poll_secs=2.0, min_diff=IN_LEVE
         else:
             hits = 0
     raise SmokeFailure("still on the loading screen after LEVEL.BIN was loaded")
+
+
+def start_level(port, base, mission, level, deadline):
+    """Start NEW GAME but jump to mission/level via the persistent game state.
+
+    Returns the cd_read_log mark taken before the level loads, so callers can
+    check which level's data was read. The briefing shown is Mission 1's.
+    """
+    goto(port, moh.MENU_RING.index("NEW GAME"), base, deadline)
+    psxrun.press(port, "cross")
+    time.sleep(NEW_GAME_SETTLE_SECS)
+    for addr, value in ((moh.STATE_MISSION_ADDR, mission - 1), (moh.STATE_LEVEL_ADDR, level - 1)):
+        psxdbg.send("write_ram", port=port, addr="0x%08X" % addr, val=value)
+        if psxrun.read_u32(port, addr) != value:
+            raise SmokeFailure(f"could not set game state at {addr:#010x} to {value}")
+    mark = cd_reads_total(port)
+    advance_until_level(port, min(deadline, time.monotonic() + LEVEL_LOAD_SECS))
+    return mark
 
 
 def start_new_game(port, base, deadline):

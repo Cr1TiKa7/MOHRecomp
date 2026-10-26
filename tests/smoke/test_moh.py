@@ -51,6 +51,25 @@ class RingStepTests(unittest.TestCase):
         self.assertFalse(moh.is_ring_step(BASE + 6 * S, BASE))
 
 
+class LevelTableTests(unittest.TestCase):
+    def test_levels_table_has_24_entries_without_overlap(self):
+        self.assertEqual(len(moh.LEVELS), 24)
+        ranges = sorted(r for _m, _l, r in moh.LEVELS)
+        for (lo, hi), (next_lo, _) in zip(ranges, ranges[1:]):
+            self.assertLessEqual(lo, hi)
+            self.assertLess(hi, next_lo)
+        self.assertEqual(moh.LEVELS[0], (1, 1, moh.M1_LVL1_LBAS))
+        self.assertEqual(moh.LEVELS[1], (1, 2, moh.M1_LVL2_LBAS))
+
+    def test_bonus_levels_are_msn12(self):
+        self.assertEqual([(m, l) for m, l, _ in moh.BONUS_LEVELS], [(12, n) for n in range(1, 8)])
+
+    def test_level_lookup(self):
+        self.assertEqual(moh.level_lbas(2, 1), (24692, 28821))
+        with self.assertRaises(KeyError):
+            moh.level_lbas(6, 1)
+
+
 class ShotCountTests(unittest.TestCase):
     def test_counts_decrements_only(self):
         # 8 -> 7 -> 7 -> 6, reload to 8, -> 7: three shots

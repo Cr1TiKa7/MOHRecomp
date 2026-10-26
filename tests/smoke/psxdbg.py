@@ -10,8 +10,10 @@ import socket
 DEFAULT_PORT = 4370
 
 
-def send(cmd, port=DEFAULT_PORT, timeout=5.0, **params):
-    request = {"id": 1, "cmd": cmd, **params}
+def send(cmd, port=DEFAULT_PORT, timeout=5.0, payload=None, **params):
+    """One request/reply. port= is the TCP port; fields that clash with send()'s
+    own parameter names (e.g. a command's pad "port") go in payload."""
+    request = {"id": 1, "cmd": cmd, **params, **(payload or {})}
     try:
         with socket.create_connection(("127.0.0.1", port), timeout=timeout) as sock:
             sock.sendall((json.dumps(request) + "\n").encode())

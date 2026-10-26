@@ -36,6 +36,32 @@ LEVEL_FILE_ID = 5
 M1_LVL1_LBAS = (1713, 6290)      # /DATA/MSN1/LVL1/*
 M1_LVL2_LBAS = (6292, 10935)     # /DATA/MSN1/LVL2/*
 
+# Single-player levels in campaign order: (mission, level, (first LBA, last LBA))
+# of the level's data files (inclusive, directory sector excluded). Missions 6
+# and 8 do not exist on the disc; MSN9 has no LVL3.
+LEVELS = (
+    (1, 1, (1713, 6290)), (1, 2, (6292, 10935)), (1, 3, (10937, 15207)),
+    (2, 1, (24692, 28821)), (2, 2, (28823, 33079)), (2, 3, (33081, 37434)), (2, 4, (37436, 41863)),
+    (3, 1, (41866, 46673)), (3, 2, (46675, 51546)), (3, 3, (51548, 56581)), (3, 4, (56583, 60949)),
+    (4, 1, (60952, 65835)), (4, 2, (65837, 70358)), (4, 3, (70360, 74809)),
+    (5, 1, (74812, 79140)), (5, 2, (79142, 83430)), (5, 3, (83432, 87646)), (5, 4, (87648, 92104)),
+    (7, 1, (92107, 96662)), (7, 2, (96664, 101218)), (7, 3, (101220, 108049)),
+    (9, 1, (108052, 112028)), (9, 2, (112030, 116060)), (9, 4, (116062, 118325)),
+)
+# /DATA/MSN12/LVL1-7: three files per level only; probably bonus/secret levels.
+BONUS_LEVELS = (
+    (12, 1, (15210, 15788)), (12, 2, (15790, 16376)), (12, 3, (16378, 16979)),
+    (12, 4, (16981, 17610)), (12, 5, (17612, 23592)), (12, 6, (23594, 24155)),
+    (12, 7, (24157, 24689)),
+)
+
+# Persistent game state (boot EXE memory, survives overlay swaps). LEVEL.BIN's
+# start-up copies mission index +1 / level index +1 from here into the
+# variables its path builder uses ("data\msn%ld\lvl%ld\..."). Writing both
+# indexes after NEW GAME starts any level.
+STATE_MISSION_ADDR = 0x800387F8   # 0-based mission index
+STATE_LEVEL_ADDR = 0x800387FC     # 0-based level index
+
 # Mission 1 Level 1: X (Cross) fires; the rifle magazine counter (8 at spawn)
 # lives here (8 -> 7 -> 6 on two shots).
 FIRE_BUTTON = "cross"
@@ -63,6 +89,14 @@ def is_ring_step(before, after, ring_size=len(MENU_RING)):
     if ring_size is None:
         return back > 0 and back % MENU_ITEM_STRIDE == 0
     return back == (ring_size - 1) * MENU_ITEM_STRIDE
+
+
+def level_lbas(mission, level):
+    """LBA range of a single-player or bonus level; KeyError if it does not exist."""
+    for m, l, lbas in LEVELS + BONUS_LEVELS:
+        if (m, l) == (mission, level):
+            return lbas
+    raise KeyError(f"no level M{mission}L{level} on the disc")
 
 
 def count_shots(magazine_samples):
