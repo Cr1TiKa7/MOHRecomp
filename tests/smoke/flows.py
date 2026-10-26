@@ -232,7 +232,7 @@ def hold(port, name, secs, pads=(1,)):
         if pad == 2:
             plug_pad2(port, psxrun.mask(name))
         else:
-            psxdbg.send("set_input", port=port, buttons=psxrun.mask(name))
+            psxrun.hold_buttons(port, name)
     time.sleep(secs)
     for pad in pads:
         if pad == 2:

@@ -97,8 +97,41 @@ def wait_frame(port, frame, deadline):
     raise TimeoutError(f"frame {frame} not reached before deadline")
 
 
+# Centred sticks for every pad-1 input. Without explicit axes the debug
+# override copies the d-pad onto the left stick of an analog P1 (the mouse
+# package presents one), so the game would see each direction twice.
+CENTRED = {"lx": 128, "ly": 128, "rx": 128, "ry": 128}
+HOST_PRESS_MARGIN_SECS = 0.02
+
+
+def input_layer(environ):
+    """Pad-1 input path: None = plain debug override (default), "host" = the
+    virtual host gamepad, which runs through the normal input chain. With the
+    mouse package on, the plain override counts every menu step twice (the
+    runtime's override and the package's analog P1 do not mix); the host
+    gamepad counts once, like a real pad. Set MOH_SMOKE_PAD_LAYER=host then."""
+    layer = environ.get("MOH_SMOKE_PAD_LAYER") or None
+    if layer not in (None, "host"):
+        raise ValueError(f"MOH_SMOKE_PAD_LAYER must be empty or 'host', not {layer!r}")
+    return layer
+
+
+INPUT_LAYER = input_layer(os.environ)
+
+
 def press(port, *names, frames=4):
-    psxdbg.send("press", port=port, buttons=mask(*names), frames=frames)
+    if INPUT_LAYER == "host":
+        psxdbg.send("set_input", port=port, layer="host", buttons=mask(*names), **CENTRED)
+        time.sleep(frames / 50 + HOST_PRESS_MARGIN_SECS)
+        psxdbg.send("set_input", port=port, layer="host", buttons=0xFFFF, **CENTRED)
+        return
+    psxdbg.send("press", port=port, buttons=mask(*names), frames=frames, **CENTRED)
+
+
+def hold_buttons(port, *names):
+    """Hold the named pad-1 buttons until clear_input."""
+    extra = {"layer": "host"} if INPUT_LAYER == "host" else {}
+    psxdbg.send("set_input", port=port, buttons=mask(*names), **extra, **CENTRED)
 
 
 def read_bytes(port, addr, n):

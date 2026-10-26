@@ -4,6 +4,7 @@ import os
 import sys
 import time
 import unittest
+from unittest import mock
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
@@ -30,7 +31,48 @@ class RemoteTests(unittest.TestCase):
             psxrun.press(srv.port, "right")
         finally:
             srv.close()
-        self.assertEqual(srv.seen, [{"id": 1, "cmd": "press", "buttons": 0xFFDF, "frames": 4}])
+        self.assertEqual(srv.seen, [{"id": 1, "cmd": "press", "buttons": 0xFFDF, "frames": 4,
+                                     "lx": 128, "ly": 128, "rx": 128, "ry": 128}])
+
+    def test_hold_buttons_sends_centred_sticks(self):
+        # An analog P1 (mouse package on) otherwise gets the d-pad copied onto the
+        # left stick by the debug override: one RIGHT would count twice.
+        srv = FakeServer({"id": 1, "ok": True})
+        try:
+            psxrun.hold_buttons(srv.port, "r2", "up")
+        finally:
+            srv.close()
+        self.assertEqual(srv.seen, [{"id": 1, "cmd": "set_input", "buttons": 0xFDEF,
+                                     "lx": 128, "ly": 128, "rx": 128, "ry": 128}])
+
+    def test_host_layer_press_holds_then_releases_the_virtual_gamepad(self):
+        srv = FakeServer({"id": 1, "ok": True})
+        try:
+            with mock.patch.object(psxrun, "INPUT_LAYER", "host"), mock.patch.object(psxrun.time, "sleep") as sleep:
+                psxrun.press(srv.port, "right", frames=4)
+        finally:
+            srv.close()
+        centred = {"lx": 128, "ly": 128, "rx": 128, "ry": 128}
+        self.assertEqual(srv.seen, [
+            {"id": 1, "cmd": "set_input", "layer": "host", "buttons": 0xFFDF, **centred},
+            {"id": 1, "cmd": "set_input", "layer": "host", "buttons": 0xFFFF, **centred}])
+        sleep.assert_called_once_with(4 / 50 + psxrun.HOST_PRESS_MARGIN_SECS)
+
+    def test_host_layer_hold_buttons(self):
+        srv = FakeServer({"id": 1, "ok": True})
+        try:
+            with mock.patch.object(psxrun, "INPUT_LAYER", "host"):
+                psxrun.hold_buttons(srv.port, "r2")
+        finally:
+            srv.close()
+        self.assertEqual(srv.seen, [{"id": 1, "cmd": "set_input", "layer": "host", "buttons": 0xFDFF,
+                                     "lx": 128, "ly": 128, "rx": 128, "ry": 128}])
+
+    def test_input_layer_comes_from_the_environment(self):
+        self.assertEqual(psxrun.input_layer({"MOH_SMOKE_PAD_LAYER": "host"}), "host")
+        self.assertIsNone(psxrun.input_layer({}))
+        with self.assertRaises(ValueError):
+            psxrun.input_layer({"MOH_SMOKE_PAD_LAYER": "gamepad"})
 
     def test_wait_frame_returns_first_reaching(self):
         frames = iter([10, 20, 30, 40])

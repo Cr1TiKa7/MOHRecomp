@@ -1,0 +1,44 @@
+format_version = 11
+id = "moh.input.mouse-keyboard"
+version = "1.0.0"
+name = "Mouse + Keyboard"
+author = "MOHRecomp"
+description = "Mouse look for Medal of Honor: the mouse turns the player, and while the aim button is held (right mouse button = R2) it moves the crosshair and tilts the view like the pad does. Keys and mouse buttons are set in keybinds.ini (Controls page)."
+license = "MIT"
+resolver = "declarative"
+save_compatibility = "shared"
+
+[[target]]
+game_id = "SLES-02470"
+
+[[feature]]
+id = "mouse-look"
+name = "Mouse Look"
+description = "Click into the game window to capture the mouse, press Esc to release it. Player 1 is presented as an analog pad while this is on; pad buttons and the d-pad work as before."
+group = "Input"
+default_enabled = false
+
+[[option]]
+feature = "mouse-look"
+id = "sensitivity"
+label = "Mouse sensitivity"
+description = "How far one mouse step turns the view. 40 is about one full turn per 6550 counts (21 cm at 800 DPI)."
+group = "Input"
+type = "integer"
+min = 1
+max = 200
+step = 1
+default = 40
+
+[[option]]
+feature = "mouse-look"
+id = "invert_y"
+label = "Invert mouse Y"
+description = "Moving the mouse up aims down."
+group = "Input"
+type = "boolean"
+default = false
+
+[[plugin]]
+feature = "mouse-look"
+id = "moh.mouse-look"

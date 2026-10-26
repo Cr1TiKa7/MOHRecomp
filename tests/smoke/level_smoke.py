@@ -59,7 +59,7 @@ _diff = flows.screen_diff
 
 
 def _hold(port, names, secs):
-    psxdbg.send("set_input", port=port, buttons=psxrun.mask(*names))
+    psxrun.hold_buttons(port, *names)
     try:
         time.sleep(secs)
     finally:

@@ -78,3 +78,9 @@ add_executable(moh_mouselook_test
     "${CMAKE_CURRENT_SOURCE_DIR}/src/mouse/mouselook.c")
 target_include_directories(moh_mouselook_test PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}/src/mouse")
 add_test(NAME mouselook COMMAND moh_mouselook_test)
+
+# Mouse-look plugin (M4), registered at startup, active only with the
+# moh.input.mouse-keyboard package enabled.
+target_sources(psx-runtime PRIVATE
+    "${CMAKE_CURRENT_SOURCE_DIR}/src/mouse/mouselook.c"
+    "${CMAKE_CURRENT_SOURCE_DIR}/src/mouse/moh_mouse_plugin.c")
