@@ -33,7 +33,6 @@ GAME_ID = "SLES-02470"
 IN_LEVEL_SECS = 120.0
 LOOP_SECS = 30
 SHOT_EVERY_SECS = 10
-LOOP_STEPS = (("up", 2.0), ("right", 1.5), ("left", 0.5), (moh.FIRE_BUTTON, 0.3))
 INTERP_MAX = 0.01
 FROZEN_DIFF = 1.0
 SmokeFailure = psxrun.SmokeFailure
@@ -62,34 +61,13 @@ def run_all(levels, check):
     return lines, failures
 
 
-def _input_loop(proc, port, out_dir, deadline):
-    """Walk/turn/fire for LOOP_SECS; returns the screenshots taken along the way."""
-    end = min(time.monotonic() + LOOP_SECS, deadline)
-    _, last_frame = psxrun.read_frame(port, deadline)
-    shots, next_shot, n = [], time.monotonic(), 0
-    while time.monotonic() < end:
-        for name, secs in LOOP_STEPS:
-            psxdbg.send("set_input", port=port, buttons=psxrun.mask(name))
-            time.sleep(secs)
-            psxdbg.send("clear_input", port=port)
-        psxrun.check_alive(proc)
-        _, frame = psxrun.read_frame(port, deadline)
-        if frame <= last_frame:
-            raise SmokeFailure(f"level stalled (frame {last_frame} -> {frame})")
-        last_frame = frame
-        if time.monotonic() >= next_shot:
-            shots.append(flows.shot(port, out_dir, f"loop{n:02d}.png"))
-            n, next_shot = n + 1, time.monotonic() + SHOT_EVERY_SECS
-    return shots
-
-
 def check_level(proc, port, out_dir, mission, level, deadline):
     lbas = moh.level_lbas(mission, level)
     base = flows.boot_to_menu(proc, port, deadline)
     mark = flows.start_level(port, base, mission, level, deadline)
     flows.wait_until_in_level(port, out_dir, min(deadline, time.monotonic() + IN_LEVEL_SECS))
     before = flows.overlay_counters(port)
-    shots = _input_loop(proc, port, out_dir, deadline)
+    shots = flows.input_loop(proc, port, out_dir, LOOP_SECS, deadline, shot_every=SHOT_EVERY_SECS)
     after = flows.overlay_counters(port)
     flows.shot(port, out_dir, f"M{mission}L{level}.png")
 

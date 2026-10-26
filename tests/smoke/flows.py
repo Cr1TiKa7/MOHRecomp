@@ -197,6 +197,37 @@ def start_new_game(port, base, deadline):
 
 
 # --------------------------------------------------------------------------
+# In-level input loop
+# --------------------------------------------------------------------------
+
+LOOP_STEPS = (("up", 2.0), ("right", 1.5), ("left", 0.5), (moh.FIRE_BUTTON, 0.3))
+
+
+def input_loop(proc, port, out_dir, secs, deadline, shot_every=10, prefix="loop"):
+    """Walk/turn/fire for secs; the game must stay alive and keep counting frames.
+
+    Returns the screenshots taken every shot_every seconds (for freeze checks).
+    """
+    end = min(time.monotonic() + secs, deadline)
+    _, last_frame = psxrun.read_frame(port, deadline)
+    shots, next_shot, n = [], time.monotonic(), 0
+    while time.monotonic() < end:
+        for name, hold in LOOP_STEPS:
+            psxdbg.send("set_input", port=port, buttons=psxrun.mask(name))
+            time.sleep(hold)
+            psxdbg.send("clear_input", port=port)
+        psxrun.check_alive(proc)
+        _, frame = psxrun.read_frame(port, deadline)
+        if frame <= last_frame:
+            raise SmokeFailure(f"level stalled (frame {last_frame} -> {frame})")
+        last_frame = frame
+        if time.monotonic() >= next_shot:
+            shots.append(shot(port, out_dir, f"{prefix}{n:03d}.png"))
+            n, next_shot = n + 1, time.monotonic() + shot_every
+    return shots
+
+
+# --------------------------------------------------------------------------
 # CD reads
 # --------------------------------------------------------------------------
 

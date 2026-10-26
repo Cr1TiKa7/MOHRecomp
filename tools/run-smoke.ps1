@@ -5,9 +5,10 @@
 # skipped with a hint when the fixture is missing and is not part of 'all'.
 # 'sweep' jumps into every single-player level (~3 min each; -Mission N limits it,
 # -Bonus sweeps the MSN12 bonus levels instead); it is not part of 'all'.
+# 'coverage-long' measures ~10 min each of videos, menus and levels (~35 min); not part of 'all'.
 param(
     [ValidateSet('dev', 'release')][string]$Build = 'dev',
-    [ValidateSet('boot', 'intro', 'menu', 'coverage', 'level', 'save', 'sweep', 'all')][string]$Test = 'boot',
+    [ValidateSet('boot', 'intro', 'menu', 'coverage', 'level', 'save', 'sweep', 'coverage-long', 'all')][string]$Test = 'boot',
     [int]$Port = 4370,
     [int]$Mission = 0,
     [switch]$Bonus
@@ -37,6 +38,11 @@ if ($Test -eq 'sweep') {
     if ($Mission -gt 0) { $sweepArgs += @('--mission', $Mission) }
     if ($Bonus) { $sweepArgs += '--bonus' }
     py -3 (Join-Path $repo 'tests\smoke\sweep_smoke.py') @sweepArgs
+    exit $LASTEXITCODE
+}
+
+if ($Test -eq 'coverage-long') {
+    py -3 (Join-Path $repo 'tests\smoke\coverage_long.py') --exe $exe --cue $env:MOH_CUE --port $Port
     exit $LASTEXITCODE
 }
 
