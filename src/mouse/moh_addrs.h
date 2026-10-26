@@ -18,12 +18,16 @@
 #define MOH_YAW_STORE_WORD        0xAE020184u
 #define MOH_YAW_STORE_REG         2            /* $v0 */
 
-/* LW $v0, 380($s0) right after LW $a0, 16($sp) loads the aim rate: pitch +=
- * rate >> 3 within the crosshair limit, tilt -= rate >> 1 beyond it. */
-#define MOH_PITCH_RATE_PC         0x8007FE80u
-#define MOH_PITCH_RATE_WORD       0x8E02017Cu
-#define MOH_PITCH_RATE_REG        4            /* $a0 */
-#define MOH_PITCH_RATE_PER_FIXED  2            /* rate units per 16.16 look-angle unit */
+/* Aim mode (R2 held): the aim function replaces the yaw store and loads one
+ * rate per axis from 16($sp): crosshair += rate >> 3 within its limit, past it
+ * yaw += rate (horizontal) or tilt -= rate >> 1 (vertical). */
+#define MOH_AIM_X_RATE_PC         0x8007FC94u  /* LW $v0, 16($sp) */
+#define MOH_AIM_X_RATE_WORD       0x8FA20010u
+#define MOH_AIM_Y_RATE_PC         0x8007FE7Cu  /* LW $a0, 16($sp) */
+#define MOH_AIM_Y_RATE_WORD       0x8FA40010u
+#define MOH_AIM_RATE_SP_OFFSET    16u
+#define MOH_AIM_Y_RATE_PER_FIXED  2            /* vertical rate units per 16.16 look-angle unit */
+#define MOH_PLAYER_AIM_X_OFFSET   0x188u       /* aim-mode crosshair X */
 
 #define MOH_PITCH_MIN             (-983040)
 #define MOH_PITCH_MAX             983040
@@ -31,3 +35,4 @@
 #define MOH_TILT_MAX              44695552
 
 #define MOH_REG_S0                16
+#define MOH_REG_SP                29

@@ -783692,6 +783692,7 @@ block_8007FC90:
 #ifdef PSX_ENABLE_BLOCK_CYCLES
     psx_cyc_step(cpu, 0x1u);
 #endif
+psx_mod_instruction(cpu, 0x8007FC94u, 0x00000000u);
     /* nop */  /* 0x8007FC94: 0x00000000 */
 #ifdef PSX_COSIM
     cosim_instr(0x8007FC94u);
@@ -784973,8 +784974,11 @@ block_8007FDE8:
 #ifdef PSX_COSIM
     cosim_instr(0x8007FE78u);
 #endif
-    { uint32_t _pgxa = cpu->gpr[5] + -2; cpu->gpr[2] = psx_cyc_load_byte(cpu, cpu->gpr[5] + -2, 2, 0x20u);
+psx_mod_instruction(cpu, 0x8007FE7Cu, 0x90A2FFFEu);
+    { uint32_t _mod_ea = psx_mod_memory_address(cpu, 0x8007FE7Cu, 0x90A2FFFEu, (uint32_t)(cpu->gpr[5] + -2));
+    { uint32_t _pgxa = _mod_ea; cpu->gpr[2] = psx_cyc_load_byte(cpu, _mod_ea, 2, 0x20u);
     PGXP_LOAD(0x90A2FFFEu, _pgxa, cpu->gpr[2]); }  /* 0x8007FE7C: 0x90A2FFFE */
+    }
 #ifdef PSX_COSIM
     cosim_instr(0x8007FE7Cu);
 #endif
@@ -787173,8 +787177,11 @@ block_800801CC:
 #ifdef PSX_ENABLE_BLOCK_CYCLES
     psx_icache_fetch(cpu, 0x800801E0u);
 #endif
-    { uint32_t _pgxa = cpu->gpr[2]; cpu->gpr[2] = psx_cyc_load_word(cpu, cpu->gpr[2], 2, 0x4u);
+psx_mod_instruction(cpu, 0x800801E0u, 0x8C420000u);
+    { uint32_t _mod_ea = psx_mod_memory_address(cpu, 0x800801E0u, 0x8C420000u, (uint32_t)(cpu->gpr[2] + 0));
+    { uint32_t _pgxa = _mod_ea; cpu->gpr[2] = psx_cyc_load_word(cpu, _mod_ea, 2, 0x4u);
     PGXP_LOAD(0x8C420000u, _pgxa, cpu->gpr[2]); }  /* 0x800801E0: 0x8C420000 */
+    }
 #ifdef PSX_COSIM
     cosim_instr(0x800801E0u);
 #endif

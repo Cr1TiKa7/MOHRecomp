@@ -33,6 +33,9 @@ known_crc32 = [
 seeds = "seeds/ghidra_funcs.txt"
 out_dir = "generated"
 strict = true
+# Mouse look (M4, src/mouse/moh_mouse_plugin.c): LEVEL.BIN's yaw store and
+# the two aim-rate loads. The hooks only act while the mouse package is enabled.
+mod_instruction_sites = ["0x800801E0", "0x8007FC94", "0x8007FE7C"]
 
 [runtime]
 window_title = "MOH Recompiled"

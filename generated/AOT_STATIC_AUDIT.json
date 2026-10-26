@@ -1,6 +1,6 @@
 {
   "game_id": "SLES-02470",
-  "recipe_input_sha256": "4579ebfb64286506e88e16ddb6fb2d37aec9b2c2cfedc27174bb1b273a920367",
+  "recipe_input_sha256": "6bc2a8f4331ec0dde2e9ddb57554ddd15414fc98d7f0ba530e1427eb7e1301f9",
   "recipe_count": 3,
   "all_pairs_valid": true,
   "all_guards_match_known_input_bytes": true,
@@ -30,8 +30,8 @@
   "files": {
     "overlays_static.c": "e56bd171afae3ec81a95a5f71b6b8f8682ca6f958dfb21f75efa856b1247fa00",
     "overlays_static_0000.c": "f7b25febaa0b1a95e65bb875b7014f012ba630aaaffca212b4c6b0839b38f069",
-    "overlays_static_0001.c": "75bad0f5ee308e60f856ce30768fe18dfd9099c322e4d644e0b81d9a33847814",
-    "overlays_static_0002.c": "c6dfe34be8c5f8a3f0dcf34934fa3c09eeaf0fa3a563b7f3ff81f4ed6581f63a"
+    "overlays_static_0001.c": "100edf0b5124a5ce0bb56229c7ab67aab39cf1c9cc5ab30820744a16b543b28a",
+    "overlays_static_0002.c": "1d9f07ef2224003c385d28ae96872a46fa2e5144edaee6f46b99e5971bf81301"
   },
   "variants": [
     {
@@ -215757,12 +215757,12 @@
   "generation_inputs": {
     "schema": "psxrecomp AOT static generation inputs v1",
     "profile_sha256": "d01b2b39320fef03ce2247c01c3de477327589925e3cfe5b0d27ce348764cc8d",
-    "game_toml_sha256": "9cfef0f753e93fa757a0c3bdebe8f5324dc7fb038e4939127a0102aa30492068",
+    "game_toml_sha256": "0c0cebafc35641298d70d7afef87c8bef04012df72657c8d4ec425d35922f1ac",
     "disc": {
       "sha256": "cf3b37769f0bd83dbf901e460af3c93591db137bbbd90fed9e91bfd2319fbba4"
     },
     "recompiler_sha256": "3f78162769c5cfbd279cd3f0c0802cc7279a28cf47955fa62470b19667c149bc",
-    "cache_tag": "cg18_67fb3a9e_gcc15c8ed0_f0",
+    "cache_tag": "cg18_67fb3a9e_gc18277886_f0",
     "cps": true,
     "gcc": "D:\\RecompDev\\Toolchain\\bin\\clang.exe",
     "tools": {
@@ -215783,5 +215783,5 @@
     },
     "mod_packages": {}
   },
-  "generation_inputs_sha256": "e9a7ea3a53057068d80e12f61d1b569166d3a9487b965106f5b2b97d4772953e"
+  "generation_inputs_sha256": "11d0a0efcf9c81d50348aa0d224dded01b63960acaa298d543829d9b2cb00662"
 }

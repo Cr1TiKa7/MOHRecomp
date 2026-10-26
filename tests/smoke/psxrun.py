@@ -51,6 +51,7 @@ def launch(exe, cue, game, port, out_dir, env_extra=None):
     SPU/CD/host audio taps that intro_smoke measures are recorded before the
     device, so they are unaffected.
     """
+    _host_armed.discard(port)
     memcards = os.path.join(os.path.abspath(out_dir), "memcards")
     os.makedirs(memcards, exist_ok=True)
     cmd = [os.path.abspath(exe), "--game", os.path.abspath(game),
@@ -117,21 +118,45 @@ def input_layer(environ):
 
 
 INPUT_LAYER = input_layer(os.environ)
+# Ports whose runtime has the virtual gamepad plugged in. Its first request
+# connects it, and an input sent with that request was lost once, so the pad
+# is first armed neutral and given HOST_ARM_SECS. launch() forgets the port.
+HOST_ARM_SECS = 0.5
+_host_armed = set()
+
+
+def _host_input(port, buttons):
+    if port not in _host_armed:
+        psxdbg.send("set_input", port=port, layer="host", buttons=0xFFFF, **CENTRED)
+        time.sleep(HOST_ARM_SECS)
+        _host_armed.add(port)
+    psxdbg.send("set_input", port=port, layer="host", buttons=buttons, **CENTRED)
 
 
 def press(port, *names, frames=4):
     if INPUT_LAYER == "host":
-        psxdbg.send("set_input", port=port, layer="host", buttons=mask(*names), **CENTRED)
+        _host_input(port, mask(*names))
         time.sleep(frames / 50 + HOST_PRESS_MARGIN_SECS)
-        psxdbg.send("set_input", port=port, layer="host", buttons=0xFFFF, **CENTRED)
+        _host_input(port, 0xFFFF)
         return
     psxdbg.send("press", port=port, buttons=mask(*names), frames=frames, **CENTRED)
 
 
+def release(port):
+    """Let go of every pad-1 button. Pad 2 stays plugged in; so does the
+    virtual gamepad (clear_input would unplug it)."""
+    if INPUT_LAYER == "host":
+        _host_input(port, 0xFFFF)
+        return
+    psxdbg.send("clear_input", port=port, payload={"port": 1})
+
+
 def hold_buttons(port, *names):
-    """Hold the named pad-1 buttons until clear_input."""
-    extra = {"layer": "host"} if INPUT_LAYER == "host" else {}
-    psxdbg.send("set_input", port=port, buttons=mask(*names), **extra, **CENTRED)
+    """Hold the named pad-1 buttons until release()."""
+    if INPUT_LAYER == "host":
+        _host_input(port, mask(*names))
+        return
+    psxdbg.send("set_input", port=port, buttons=mask(*names), **CENTRED)
 
 
 def read_bytes(port, addr, n):

@@ -96,25 +96,34 @@ YAW_UNITS_PER_TURN = 4096
 # and LEVEL2P.BIN hold other words at this address.
 YAW_STORE_PC = 0x800801E0
 YAW_STORE_WORD = 0xAE020184
-# Aim mode (R2 held) only. Pitch moves the crosshair: 0 = centre, negative =
-# up, clamped to PITCH_MIN..PITCH_MAX; releasing R2 writes 0 (0x80080028).
-# Pushing on at the limit tilts the camera instead: tilt is 16.16 like yaw,
-# positive = up, clamped to TILT_MIN..TILT_MAX (0xFD560000/0x02AA0000, about
-# 60 degrees) and recentred by the game after release. One rate in $a0 feeds
-# both: pitch += rate >> 3 within the limit, tilt -= rate >> 1 beyond it, so
-# the look angle moves by rate / 2 either way (PITCH_RATE_PER_FIXED = 2).
+# Aim mode (R2 held). LEVEL.BIN's aim function then replaces the yaw store
+# above and treats both axes alike: it loads a rate from 16($sp) (after the
+# pad's speed modifiers), moves a crosshair coordinate by rate >> 3 within its
+# limit, and past the limit turns the view instead.
+# - Horizontal: crosshair X at +0x188; past it yaw += rate (SW at 0x8007FD7C),
+#   so the rate is in 16.16 yaw units (AIM_X_RATE_PER_FIXED = 1).
+# - Vertical: crosshair Y ("pitch") at +0x17C, 0 = centre, negative = up,
+#   clamped to PITCH_MIN..PITCH_MAX; past it the camera tilt (+0x178, 16.16,
+#   positive = up, TILT_MIN..TILT_MAX = 0xFD560000..0x02AA0000, about 60
+#   degrees) moves by -(rate >> 1), so AIM_Y_RATE_PER_FIXED = 2.
+# Releasing R2 writes pitch 0 (0x80080028); the game recentres the tilt.
+# Outside aim mode the game has no pitch (EASY AIM aims vertically).
+PLAYER_AIM_X_OFFSET = 0x188
 PLAYER_PITCH_OFFSET = 0x17C
 PLAYER_TILT_OFFSET = 0x178
 PITCH_MIN = -983040
 PITCH_MAX = 983040
 TILT_MIN = -44695552
 TILT_MAX = 44695552
-PITCH_RATE_PER_FIXED = 2
-# LW $v0, 380($s0) right after the rate is loaded into $a0 (LW $a0, 16($sp));
-# every aim-mode frame, with or without pad input.
-PITCH_RATE_PC = 0x8007FE80
-PITCH_RATE_WORD = 0x8E02017C
-PITCH_RATE_REG = 4
+AIM_X_RATE_PER_FIXED = 1
+AIM_Y_RATE_PER_FIXED = 2
+# The two rate loads, LW $v0/$a0, 16($sp); every aim-mode frame, with or
+# without pad input, horizontal first. Only LEVEL.BIN has these words here.
+AIM_X_RATE_PC = 0x8007FC94
+AIM_X_RATE_WORD = 0x8FA20010
+AIM_Y_RATE_PC = 0x8007FE7C
+AIM_Y_RATE_WORD = 0x8FA40010
+AIM_RATE_SP_OFFSET = 16
 
 
 def menu_index_from_ptr(ptr, base, ring_size=len(MENU_RING)):

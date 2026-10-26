@@ -21,8 +21,8 @@ static int32_t convert(double value, double *rem, double max) {
     return (int32_t)whole;
 }
 
-void moh_look_init(MohLook *look, int sensitivity, int invert_y, int rate_per_fixed) {
-    look->rate_per_fixed = rate_per_fixed;
+void moh_look_init(MohLook *look, int sensitivity, int invert_y, int y_rate_per_fixed) {
+    look->y_rate_per_fixed = y_rate_per_fixed;
     moh_look_set(look, sensitivity, invert_y);
     moh_look_reset(look);
 }
@@ -34,9 +34,7 @@ void moh_look_set(MohLook *look, int sensitivity, int invert_y) {
 
 void moh_look_reset(MohLook *look) {
     look->pend_x = look->pend_y = 0.0;
-    look->rem_yaw = look->rem_rate = 0.0;
-    look->rate_ready = 0;
-    look->rate_taken = 1;
+    look->rem_x = look->rem_y = 0.0;
 }
 
 void moh_look_motion(MohLook *look, double dx, double dy) {
@@ -44,23 +42,28 @@ void moh_look_motion(MohLook *look, double dx, double dy) {
     look->pend_y += dy;
 }
 
+static double per_count(const MohLook *look) {
+    return (double)look->sensitivity * MOH_LOOK_FIXED_PER_COUNT;
+}
+
 int32_t moh_look_take_yaw(MohLook *look) {
-    const double per_count = (double)look->sensitivity * MOH_LOOK_FIXED_PER_COUNT;
-    const int32_t yaw = convert(look->pend_x * per_count, &look->rem_yaw, MOH_LOOK_YAW_MAX);
-    /* An untaken rate means the aim hook did not run: not in aim mode. */
-    if (!look->rate_taken) look->rem_rate = 0.0;
-    const double sign = look->invert_y ? -1.0 : 1.0;
-    look->rate_ready = convert(sign * look->pend_y * per_count * look->rate_per_fixed,
-                               &look->rem_rate, MOH_LOOK_RATE_MAX);
-    look->rate_taken = 0;
+    const int32_t yaw = convert(look->pend_x * per_count(look), &look->rem_x, MOH_LOOK_YAW_MAX);
     look->pend_x = look->pend_y = 0.0;
+    look->rem_y = 0.0;
     return yaw;
 }
 
-int32_t moh_look_take_pitch_rate(MohLook *look) {
-    const int32_t rate = look->rate_ready;
-    look->rate_ready = 0;
-    look->rate_taken = 1;
+int32_t moh_look_take_aim_x(MohLook *look) {
+    const int32_t rate = convert(look->pend_x * per_count(look), &look->rem_x, MOH_LOOK_RATE_MAX);
+    look->pend_x = 0.0;
+    return rate;
+}
+
+int32_t moh_look_take_aim_y(MohLook *look) {
+    const double sign = look->invert_y ? -1.0 : 1.0;
+    const int32_t rate = convert(sign * look->pend_y * per_count(look) * look->y_rate_per_fixed,
+                                 &look->rem_y, MOH_LOOK_RATE_MAX);
+    look->pend_y = 0.0;
     return rate;
 }
 

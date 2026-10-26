@@ -8,6 +8,7 @@
 #include <stdlib.h>
 #include <string.h>
 
+#include "cpu_state.h"
 #include "mod_plugins.h"
 #include "moh_addrs.h"
 #include "mouselook.h"
@@ -21,8 +22,12 @@
 static MohLook g_look;
 static uint32_t g_vblanks, g_hook_vblank;
 static int g_hook_seen;
-/* Filled by the debug-server thread, drained on the emulation thread. */
+/* Debug "move" counts: filled by the debug-server thread, moved to g_debug_*
+ * on VBlank while in gameplay and handed to g_look by the frame's first hook.
+ * They stay out of g_look until then because the policy, never capturing
+ * under debug input, sends RESET on every update. */
 static _Atomic long long g_inbox_x, g_inbox_y;
+static double g_debug_x, g_debug_y;
 
 static int option_text(const char *option_id, char *out, uint32_t size) {
     return psx_mod_option_value(PACKAGE_ID, FEATURE_ID, option_id, out, size);
@@ -70,18 +75,72 @@ static void on_vblank(void) {
     const long long dx = atomic_exchange(&g_inbox_x, 0);
     const long long dy = atomic_exchange(&g_inbox_y, 0);
     if (!dx && !dy) return;
-    if (in_gameplay())
-        moh_look_motion(&g_look, dx / INBOX_SCALE, dy / INBOX_SCALE);
-    else
+    if (in_gameplay()) {
+        g_debug_x += dx / INBOX_SCALE;
+        g_debug_y += dy / INBOX_SCALE;
+    } else
         psx_mod_counter_add("moh_mouse.dropped", 1);
 }
 
+/* The hook sites exist only in LEVEL.BIN (the registered word is checked
+ * too); the store also has to be the player's, not another actor's. */
+static int is_player(const struct CPUState *cpu) {
+    if (psx_mod_read_word(MOH_OVERLAY_ADDR) != MOH_LEVEL_FILE_ID) return 0;
+    const uint32_t owner = psx_mod_read_word(MOH_PLAYER_OWNER_PTR_ADDR);
+    return owner && cpu->gpr[MOH_REG_S0] == psx_mod_read_word(owner + MOH_PLAYER_PTR_OFFSET);
+}
+
+/* First hook of a game frame (yaw store or horizontal aim rate): hand over
+ * the staged debug counts and note that gameplay is running. */
+static void frame_hook(void) {
+    if (g_debug_x != 0.0 || g_debug_y != 0.0) {
+        moh_look_motion(&g_look, g_debug_x, g_debug_y);
+        g_debug_x = g_debug_y = 0.0;
+    }
+    g_hook_vblank = g_vblanks;
+    g_hook_seen = 1;
+}
+
+/* The aim rate sits in 16($sp) and is loaded by the hooked instruction. */
+static void add_to_aim_rate(struct CPUState *cpu, int32_t rate) {
+    if (!rate) return;
+    const uint32_t slot = cpu->gpr[MOH_REG_SP] + MOH_AIM_RATE_SP_OFFSET;
+    psx_mod_write_word(slot, psx_mod_read_word(slot) + (uint32_t)rate);
+}
+
+/* Normal play, before SW $v0, 388($s0): $v0 = yaw + the game's own turn rate. */
+static void on_yaw_store(struct CPUState *cpu, uint32_t address) {
+    (void)address;
+    if (!is_player(cpu)) return;
+    frame_hook();
+    cpu->gpr[MOH_YAW_STORE_REG] += (uint32_t)moh_look_take_yaw(&g_look);
+    psx_mod_counter_add("moh_mouse.yaw_hook", 1);
+}
+
+/* Aim mode, before LW $v0, 16($sp): the horizontal aim rate. */
+static void on_aim_x(struct CPUState *cpu, uint32_t address) {
+    (void)address;
+    if (!is_player(cpu)) return;
+    frame_hook();
+    add_to_aim_rate(cpu, moh_look_take_aim_x(&g_look));
+    psx_mod_counter_add("moh_mouse.aim_x_hook", 1);
+}
+
+/* Aim mode, before LW $a0, 16($sp): the vertical aim rate. */
+static void on_aim_y(struct CPUState *cpu, uint32_t address) {
+    (void)address;
+    if (!is_player(cpu)) return;
+    add_to_aim_rate(cpu, moh_look_take_aim_y(&g_look));
+    psx_mod_counter_add("moh_mouse.aim_y_hook", 1);
+}
+
 static void on_activate(void) {
-    moh_look_init(&g_look, option_sensitivity(), option_invert_y(), MOH_PITCH_RATE_PER_FIXED);
+    moh_look_init(&g_look, option_sensitivity(), option_invert_y(), MOH_AIM_Y_RATE_PER_FIXED);
     g_vblanks = g_hook_vblank = 0;
     g_hook_seen = 0;
     atomic_store(&g_inbox_x, 0);
     atomic_store(&g_inbox_y, 0);
+    g_debug_x = g_debug_y = 0.0;
     /* The mouse policy only captures for an analog P1. */
     psx_mod_set_controller_mode_override(0, PAD_MODE_ANALOG);
     if (psx_mod_set_local_mouse_policy(&k_policy))
@@ -116,6 +175,9 @@ static int cmd_moh_mouse(const char *args, char *reply, int cap) {
 
 PSX_MOD_CONSTRUCTOR(moh_mouse_register) {
     psx_mod_register_activation_plugin(PLUGIN_ID, on_activate);
+    psx_mod_register_instruction_plugin(PLUGIN_ID, MOH_YAW_STORE_PC, MOH_YAW_STORE_WORD, on_yaw_store);
+    psx_mod_register_instruction_plugin(PLUGIN_ID, MOH_AIM_X_RATE_PC, MOH_AIM_X_RATE_WORD, on_aim_x);
+    psx_mod_register_instruction_plugin(PLUGIN_ID, MOH_AIM_Y_RATE_PC, MOH_AIM_Y_RATE_WORD, on_aim_y);
     psx_mod_register_vblank_plugin(PLUGIN_ID, on_vblank);
     psx_mod_register_option_changed_plugin(PLUGIN_ID, on_option_changed);
     psx_mod_register_command("moh_mouse", cmd_moh_mouse);

@@ -1,5 +1,5 @@
 # Run smoke tests against a local build.
-# Usage:  pwsh -File tools/run-smoke.ps1 [-Build dev|release] [-Test boot|intro|menu|coverage|level|save|sweep|coverage-long|mp|all] [-Port 4370]
+# Usage:  pwsh -File tools/run-smoke.ps1 [-Build dev|release] [-Test boot|intro|menu|coverage|level|save|sweep|coverage-long|mp|mouse|all] [-Port 4370]
 # 'all' runs boot, intro, menu, coverage and level in that order and stops at the first failure.
 # 'save' needs the local fixture card (a save made after Mission 1 Level 1); it is
 # skipped with a hint when the fixture is missing and is not part of 'all'.
@@ -7,9 +7,11 @@
 # -Bonus sweeps the MSN12 folders instead, most likely the multiplayer arenas); it is not part of 'all'.
 # 'coverage-long' measures ~10 min each of videos, menus and levels (~45 min); not part of 'all'.
 # 'mp' plugs a second pad in over the debug port and plays the split screen (~4 min); not part of 'all'.
+# 'mouse' switches the mouse package on (build-dir mods/state.toml, restored afterwards) and checks
+# yaw, aim-mode pitch, pause, split screen and package off in three boots (~12 min); not part of 'all'.
 param(
     [ValidateSet('dev', 'release')][string]$Build = 'dev',
-    [ValidateSet('boot', 'intro', 'menu', 'coverage', 'level', 'save', 'sweep', 'coverage-long', 'mp', 'all')][string]$Test = 'boot',
+    [ValidateSet('boot', 'intro', 'menu', 'coverage', 'level', 'save', 'sweep', 'coverage-long', 'mp', 'mouse', 'all')][string]$Test = 'boot',
     [int]$Port = 4370,
     [int]$Mission = 0,
     [switch]$Bonus

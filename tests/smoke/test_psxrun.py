@@ -48,7 +48,9 @@ class RemoteTests(unittest.TestCase):
     def test_host_layer_press_holds_then_releases_the_virtual_gamepad(self):
         srv = FakeServer({"id": 1, "ok": True})
         try:
-            with mock.patch.object(psxrun, "INPUT_LAYER", "host"), mock.patch.object(psxrun.time, "sleep") as sleep:
+            with mock.patch.object(psxrun, "INPUT_LAYER", "host"), \
+                    mock.patch.object(psxrun, "_host_armed", {srv.port}), \
+                    mock.patch.object(psxrun.time, "sleep") as sleep:
                 psxrun.press(srv.port, "right", frames=4)
         finally:
             srv.close()
@@ -58,15 +60,47 @@ class RemoteTests(unittest.TestCase):
             {"id": 1, "cmd": "set_input", "layer": "host", "buttons": 0xFFFF, **centred}])
         sleep.assert_called_once_with(4 / 50 + psxrun.HOST_PRESS_MARGIN_SECS)
 
-    def test_host_layer_hold_buttons(self):
+    def test_host_layer_plugs_the_gamepad_in_before_its_first_input(self):
+        # The first input after arming the virtual gamepad was lost once (it
+        # connects with that request), so it is armed neutral and given time.
         srv = FakeServer({"id": 1, "ok": True})
         try:
-            with mock.patch.object(psxrun, "INPUT_LAYER", "host"):
+            with mock.patch.object(psxrun, "INPUT_LAYER", "host"), \
+                    mock.patch.object(psxrun, "_host_armed", set()), \
+                    mock.patch.object(psxrun.time, "sleep") as sleep:
+                psxrun.hold_buttons(srv.port, "r2")
                 psxrun.hold_buttons(srv.port, "r2")
         finally:
             srv.close()
-        self.assertEqual(srv.seen, [{"id": 1, "cmd": "set_input", "layer": "host", "buttons": 0xFDFF,
-                                     "lx": 128, "ly": 128, "rx": 128, "ry": 128}])
+        centred = {"lx": 128, "ly": 128, "rx": 128, "ry": 128}
+        self.assertEqual(srv.seen, [
+            {"id": 1, "cmd": "set_input", "layer": "host", "buttons": 0xFFFF, **centred},
+            {"id": 1, "cmd": "set_input", "layer": "host", "buttons": 0xFDFF, **centred},
+            {"id": 1, "cmd": "set_input", "layer": "host", "buttons": 0xFDFF, **centred}])
+        sleep.assert_called_once_with(psxrun.HOST_ARM_SECS)
+
+    def test_release_clears_port_1_or_lets_go_of_the_virtual_gamepad(self):
+        srv = FakeServer({"id": 1, "ok": True})
+        try:
+            psxrun.release(srv.port)
+            with mock.patch.object(psxrun, "INPUT_LAYER", "host"), \
+                    mock.patch.object(psxrun, "_host_armed", {srv.port}):
+                psxrun.release(srv.port)   # stays plugged in: clear_input would unplug it
+        finally:
+            srv.close()
+        self.assertEqual(srv.seen, [
+            {"id": 1, "cmd": "clear_input", "port": 1},
+            {"id": 1, "cmd": "set_input", "layer": "host", "buttons": 0xFFFF,
+             "lx": 128, "ly": 128, "rx": 128, "ry": 128}])
+
+    def test_launch_forgets_the_armed_gamepad_of_its_port(self):
+        import tempfile
+
+        with tempfile.TemporaryDirectory() as out, \
+                mock.patch.object(psxrun, "_host_armed", {4370, 4371}), \
+                mock.patch.object(psxrun.subprocess, "Popen"):
+            psxrun.launch(sys.executable, "x.cue", "game.toml", 4370, out)
+            self.assertEqual(psxrun._host_armed, {4371})
 
     def test_input_layer_comes_from_the_environment(self):
         self.assertEqual(psxrun.input_layer({"MOH_SMOKE_PAD_LAYER": "host"}), "host")

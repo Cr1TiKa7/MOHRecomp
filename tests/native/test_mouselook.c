@@ -37,69 +37,68 @@ static void reset_drops(void) {
     moh_look_motion(&look, 50, 50);
     moh_look_reset(&look);
     CHECK(moh_look_take_yaw(&look) == 0);
-    CHECK(moh_look_take_pitch_rate(&look) == 0);
+    CHECK(moh_look_take_aim_x(&look) == 0);
+    CHECK(moh_look_take_aim_y(&look) == 0);
 }
 
-static void reset_drops_ready_rate(void) {
+static void yaw_drops_vertical(void) {
     init(40, 0);
     moh_look_motion(&look, 0, 10);
-    moh_look_take_yaw(&look);
-    moh_look_reset(&look);
-    CHECK(moh_look_take_pitch_rate(&look) == 0);
-}
-
-static void pitch_after_take(void) {
-    init(40, 0);
-    moh_look_motion(&look, 0, 10);
-    CHECK(moh_look_take_pitch_rate(&look) == 0);   /* not converted before the frame's yaw take */
     CHECK(moh_look_take_yaw(&look) == 0);
-    CHECK(moh_look_take_pitch_rate(&look) == 819200);
-    CHECK(moh_look_take_pitch_rate(&look) == 0);
+    CHECK(moh_look_take_aim_y(&look) == 0);   /* no aim mode this frame: vertical motion is gone */
+}
+
+static void aim_x_rate(void) {
+    init(40, 0);
+    moh_look_motion(&look, 100, 0);
+    CHECK(moh_look_take_aim_x(&look) == 4096000);
+    CHECK(moh_look_take_aim_x(&look) == 0);
+}
+
+static void aim_y_rate(void) {
+    init(40, 0);
+    moh_look_motion(&look, 0, 10);
+    CHECK(moh_look_take_aim_y(&look) == 819200);
+    CHECK(moh_look_take_aim_y(&look) == 0);
+}
+
+static void aim_axes_independent(void) {
+    init(40, 0);
+    moh_look_motion(&look, 100, 10);
+    CHECK(moh_look_take_aim_y(&look) == 819200);
+    CHECK(moh_look_take_aim_x(&look) == 4096000);
 }
 
 static void mouse_up_looks_up(void) {
     init(40, 0);
     moh_look_motion(&look, 0, -10);
-    moh_look_take_yaw(&look);
-    CHECK(moh_look_take_pitch_rate(&look) == -819200);
+    CHECK(moh_look_take_aim_y(&look) == -819200);
 }
 
-static void pitch_stale_dropped(void) {
-    init(40, 0);
-    moh_look_motion(&look, 0, 10);
-    moh_look_take_yaw(&look);
-    moh_look_take_yaw(&look);
-    CHECK(moh_look_take_pitch_rate(&look) == 0);
-}
-
-static void pitch_fraction_carries(void) {
+static void aim_fraction_carries(void) {
     int32_t sum = 0;
     init(1, 0);
-    for (int i = 0; i < 10; i++) {
-        moh_look_motion(&look, 0, 0.0001);
-        moh_look_take_yaw(&look);
-        sum += moh_look_take_pitch_rate(&look);
-    }
+    for (int i = 0; i < 10; i++) { moh_look_motion(&look, 0, 0.0001); sum += moh_look_take_aim_y(&look); }
     CHECK(sum == 2);
 }
 
 static void invert(void) {
     init(40, 1);
     moh_look_motion(&look, 0, 10);
-    moh_look_take_yaw(&look);
-    CHECK(moh_look_take_pitch_rate(&look) == -819200);
+    CHECK(moh_look_take_aim_y(&look) == -819200);
+    moh_look_motion(&look, 100, 0);
+    CHECK(moh_look_take_aim_x(&look) == 4096000);   /* X is never inverted */
 }
 
 static void rate_clamp(void) {
     init(40, 0);
-    moh_look_motion(&look, 0, 1e6);
-    moh_look_take_yaw(&look);
-    CHECK(moh_look_take_pitch_rate(&look) == MOH_LOOK_RATE_MAX);
-    moh_look_motion(&look, 0, -1e6);
-    moh_look_take_yaw(&look);
-    CHECK(moh_look_take_pitch_rate(&look) == -MOH_LOOK_RATE_MAX);
-    moh_look_take_yaw(&look);
-    CHECK(moh_look_take_pitch_rate(&look) == 0);   /* the excess is dropped, not carried */
+    moh_look_motion(&look, 1e6, 1e6);
+    CHECK(moh_look_take_aim_x(&look) == MOH_LOOK_RATE_MAX);
+    CHECK(moh_look_take_aim_y(&look) == MOH_LOOK_RATE_MAX);
+    moh_look_motion(&look, -1e6, -1e6);
+    CHECK(moh_look_take_aim_x(&look) == -MOH_LOOK_RATE_MAX);
+    CHECK(moh_look_take_aim_y(&look) == -MOH_LOOK_RATE_MAX);
+    CHECK(moh_look_take_aim_y(&look) == 0);   /* the excess is dropped, not carried */
 }
 
 static void yaw_clamp(void) {
@@ -127,8 +126,7 @@ static void live_set(void) {
     CHECK(moh_look_take_yaw(&look) == 2048);
     moh_look_set(&look, 40, 1);
     moh_look_motion(&look, 0, 10);
-    moh_look_take_yaw(&look);
-    CHECK(moh_look_take_pitch_rate(&look) == -819200);
+    CHECK(moh_look_take_aim_y(&look) == -819200);
 }
 
 static void eligible(void) {
@@ -146,11 +144,12 @@ int main(void) {
     fraction_carries();
     negative_carries();
     reset_drops();
-    reset_drops_ready_rate();
-    pitch_after_take();
+    yaw_drops_vertical();
+    aim_x_rate();
+    aim_y_rate();
+    aim_axes_independent();
     mouse_up_looks_up();
-    pitch_stale_dropped();
-    pitch_fraction_carries();
+    aim_fraction_carries();
     invert();
     rate_clamp();
     yaw_clamp();

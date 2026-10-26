@@ -63,7 +63,7 @@ def _hold(port, names, secs):
     try:
         time.sleep(secs)
     finally:
-        psxdbg.send("clear_input", port=port)
+        psxrun.release(port)
 
 
 def fps_verdict(windows):

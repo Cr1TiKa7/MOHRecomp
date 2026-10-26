@@ -224,9 +224,9 @@ def plug_pad2(port, buttons=0xFFFF):
 def hold(port, name, secs, pads=(1,)):
     """Hold one button on the given pads, then release it.
 
-    Pad 1 is released with clear_input for port 1 only: a bare clear_input also
-    ends the port-2 injection, which unplugs pad 2. Pad 2 is released by
-    driving it with no buttons pressed.
+    Pad 1 is released with psxrun.release (clear_input for port 1 only: a bare
+    clear_input also ends the port-2 injection, which unplugs pad 2). Pad 2 is
+    released by driving it with no buttons pressed.
     """
     for pad in pads:
         if pad == 2:
@@ -238,7 +238,7 @@ def hold(port, name, secs, pads=(1,)):
         if pad == 2:
             plug_pad2(port)
         else:
-            psxdbg.send("clear_input", port=port, payload={"port": 1})
+            psxrun.release(port)
 
 
 def input_loop(proc, port, out_dir, secs, deadline, shot_every=10, prefix="loop", pads=(1,)):
