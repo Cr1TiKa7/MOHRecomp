@@ -49,6 +49,11 @@ pwsh -File tools/run-smoke.ps1 -Build dev -Test all
 
 # Spielstand-Test (braucht das lokale Fixture, nicht Teil von "all")
 pwsh -File tools/run-smoke.ps1 -Build dev -Test save
+
+# Lange Läufe, nicht Teil von "all"
+pwsh -File tools/run-smoke.ps1 -Build dev -Test sweep              # alle 24 Levels (-Mission N: nur eine Mission)
+pwsh -File tools/run-smoke.ps1 -Build dev -Test mp                 # Splitscreen
+pwsh -File tools/run-smoke.ps1 -Build dev -Test coverage-long      # je 10 min Videos, Menüs, Levels
 ```
 
 | Test | Prüft | Dauer |
@@ -59,6 +64,9 @@ pwsh -File tools/run-smoke.ps1 -Build dev -Test save
 | `coverage` | Ohne Runtime-Autocompile und ohne DLL-Cache: Loader aktiv, keine DLL lief, Interpreter-Anteil < 1 %, statischer Overlay-Code lief. Danach NEW GAME mit X durchs Briefing, bis `LEVEL.BIN` an `0x80039F28` liegt, und das Spiel läuft weiter. | ~3 min |
 | `level` | Mission 1, Level 1 ohne Autocompile: wartet, bis das Ladeplakat weg ist. Bildrate ≥ 48 (Median aus 3 × 5 s), Ton, UP verändert das Bild deutlich stärker als Stillstand, 2 min Laufen/Drehen/Schießen ohne Hänger, Interpreter-Anteil im Level-Fenster < 1 %. | ~4 min |
 | `save` | Lädt das Fixture `D:\RecompDev\fixtures\moh-m1l1-complete.mcd` über WAR RECORDS → LOAD GAME. Der Spielername steht vorher nicht im Spielspeicher, danach schon. Die Karte wurde gelesen, das Spiel läuft weiter, das Fixture bleibt unverändert. | ~2 min |
+| `sweep` | Pro Level eine eigene Instanz ohne Autocompile: Sprung ins Level (siehe „Level-Sprung“), 30 s Laufen/Drehen/Schießen. Das Level hat seine eigenen Daten gelesen (bei allen außer M1L1 keine von M1L1), das Bild ändert sich weiter, Interpreter-Anteil < 1 %. Eine Zeile pro Level, bricht nie vorzeitig ab. `-Bonus` springt stattdessen in die MSN12-Ordner. | ~3 min pro Level |
+| `mp` | Ohne Autocompile: steckt über den Debug-Port einen Controller in Port 2, MULTIPLAYER → START GAME. `LEVEL2P.BIN` liegt an `0x80039F28`, jeder Controller dreht nur seine Bildhälfte (Spieler 1 oben), 60 s beide Spieler aktiv, `/DATA/TWOPLAYR/` gelesen, Interpreter-Anteil < 1 %. | ~4 min |
+| `coverage-long` | Ohne Autocompile je 10 min Videos (Boot ohne Turbo, dann BRIEFING in Schleife), Menüs (Ring, OPTIONS, WAR RECORDS, GALLERY) und Levels (M1L1, M3L1, M7L1). Jede Phase zählt nur ihre eigenen Fenster und muss < 1 % interpretiert bleiben. | ~35 min |
 
 **Fixture:** Die Karte stammt aus einem echten Durchlauf von Mission 1, Level 1 im Release-Build, gespeichert am 2026-10-26 als `BESLES-02470PASCAL0`. Sie liegt nur lokal und kommt nie ins Repo. Neu erzeugen: Level durchspielen, speichern, `saves\card1.mcd` dorthin kopieren.
 
@@ -70,17 +78,33 @@ Die Tests starten das Spiel mit `SDL_AUDIODRIVER=dummy`, es ist also nichts zu h
 
 ## Overlays vorab nativ (`aot/overlays.json`)
 
-`SHELL.BIN` (Menüs) und `LEVEL.BIN` (Einzelspieler-Level) werden aus den Disc-Daten vorab kompiliert:
-- Beide liegen abwechselnd an derselben Ladeadresse `0x80039F28`. Belegt ist das durch den Lader-Code der Boot-EXE (Check `words`) und im RAM. Die Byte-Guards der Runtime wählen das richtige Image.
+`SHELL.BIN` (Menüs), `LEVEL.BIN` (Einzelspieler-Level) und `LEVEL2P.BIN` (Splitscreen) werden aus den Disc-Daten vorab kompiliert:
+- Alle drei liegen abwechselnd an derselben Ladeadresse `0x80039F28`. Belegt ist das durch den Lader-Code der Boot-EXE (Check `words`) und im RAM. Das erste Wort des Overlays ist 7 (`SHELL`), 5 (`LEVEL`) oder 6 (`LEVEL2P`). Die Byte-Guards der Runtime wählen das richtige Image.
 - gebunden an den SHA-256 des Datentracks
-- `generate` baut daraus `generated/overlays_static*.c` (SHELL 15.270 + LEVEL 14.208 native Einstiege), die `CMakeLists.txt` linkt es über `GAME_OVERLAY_STATIC_C`
+- `generate` baut daraus `generated/overlays_static*.c` (SHELL 15.270 + LEVEL 14.208 + LEVEL2P 13.664 native Einstiege), die `CMakeLists.txt` linkt es über `GAME_OVERLAY_STATIC_C`. `generated/AOT_STATIC_AUDIT.json` listet die Images unter `required_images`.
 - Ergebnis: Menü und Level laufen mit 50 Bildern/s. Ohne `LEVEL.BIN` im Rezept lief das Level interpretiert mit ~33.
+
+**Boot-EXE-Funktionen, die nur Overlays aufrufen:** Der Recompiler findet in der EXE nur Funktionen, die die EXE selbst erreicht. Springt ein Overlay per `jal` in eine EXE-Funktion ohne Einstieg, läuft sie bei jedem Aufruf interpretiert. Im Splitscreen war das der Stapel-Umschalter `0x8001535C`, der allein fast den ganzen Interpreter-Anteil ausmachte. Solche Ziele kommen als Seeds nach `seeds/ghidra_funcs.txt`, danach `generate` und neu bauen. Finden lassen sie sich so: alle `CPS jal -> 0x…`-Ziele in `generated/overlays_static*.c` unter `0x80039F28`, die in `generated/SLES_024.70_dispatch.c` kein `func_…` haben. Welcher Code im Spiel interpretiert läuft, zeigt `dirty_ram_stats` (`per_pc`, Differenz zweier Abfragen).
 
 Bei einer anderen Disc bricht die Pipeline mit „not applicable“ ab. Prüfen ohne Build:
 
 ```powershell
 py -3 psxrecomp\tools\aot_overlay_pipeline.py extract --profile aot\overlays.json --game-toml game.toml --recompiler build-recompiler\psxrecomp-game.exe --work-dir D:\RecompDev\Temp\aot-work
 ```
+
+## Level-Sprung
+
+Der Spielstand liegt in der Boot-EXE und überlebt den Wechsel der Overlays: Missionsindex an `0x800387F8`, Levelindex an `0x800387FC`, beide ab 0. `flows.start_level` startet NEW GAME, schreibt nach 3 s beide Werte und drückt X durch Videos und Briefing. `LEVEL.BIN` lädt dann das gewählte Level (Pfadformat `data\msn%ld\lvl%ld\…`). Das Briefing zeigt trotzdem das von Mission 1. Früher geschrieben überschreibt das Spiel die Werte beim Zurücksetzen.
+
+Die Missionsordner auf der Disc sind MSN1–5, MSN7 und MSN9 (MSN9 ohne LVL3), zusammen 24 Levels. MSN12 hat sieben Ordner mit je drei Dateien. Der Splitscreen lädt seine Standardkarte aus MSN12/LVL4, es sind also sehr wahrscheinlich die Mehrspieler-Karten. Die Sektorbereiche aller Levels stehen in `tests/smoke/moh.py`.
+
+## Splitscreen
+
+MULTIPLAYER öffnet einen eigenen Raum, START GAME ist vorgewählt. Ohne Controller in Port 2 erscheint „NOT ALL CONTROLLERS PLUGGED IN…“. Dafür braucht das Projekt `MAX_PLAYERS 2` (`CMakeLists.txt`) und `players = 2` (`game.toml`).
+
+- Zum Spielen: im Launcher unter Controls Spieler 2 ein Gamepad zuweisen. Standardmäßig hat Spieler 2 kein Gerät, der Einzelspieler bleibt also unverändert.
+- Spieler 2 auf der Tastatur ist nicht vorgesehen: `[player2]` in `keybinds.ini` belegt Tasten, die Spieler 1 mit WASD schon nutzt.
+- Tests: `set_input`/`press` mit `payload={"port": 2, "connected": 1}` steckt einen digitalen Controller ein, solange der Test ihn treibt (`flows.plug_pad2`, `flows.hold`).
 
 ## RAM-Werte finden (`tools/ramdiff.py`)
 
@@ -114,12 +138,17 @@ Die Smoke-Tests sind von der Belegung unabhängig, sie steuern über den Debug-O
 
 ## Debug-Port
 
-Nur im Dev-Build. Pro TCP-Verbindung geht genau eine JSON-Zeile hin und eine zurück, z. B. `{"id":1,"cmd":"ping"}`. Python-Client: `tests/smoke/psxdbg.py` (`send(cmd, port=4370, **params)`).
+Nur im Dev-Build. Pro TCP-Verbindung geht genau eine JSON-Zeile hin und eine zurück, z. B. `{"id":1,"cmd":"ping"}`. Python-Client: `tests/smoke/psxdbg.py` (`send(cmd, port=4370, payload=None, **params)`).
 
 Fallstricke:
 - `ping` beantwortet ein I/O-Thread ohne Bildzähler. Die Bildnummer liefert `frame`.
 - `audio_wav` mit `start < 0` liefert die ältesten Samples. Für die jüngsten muss man `start = audio_stats.taps[i].frames - count` übergeben.
 - `mdec_state.decode_macroblocks` gilt pro Bild. Fortlaufend zählt `dma_in_words`.
+- `psxdbg.send` wirft bei `{"ok": false}` keinen Fehler. Wo es zählt, die Antwort prüfen.
+- `send(…, port=…)` ist der TCP-Port. Das Feld `port` eines Befehls (Controller-Port bei `set_input`/`press`/`clear_input`) gehört in `payload=`.
+- Ein `clear_input` ohne `port` beendet auch die Eingabe für Port 2 und zieht damit den Test-Controller dort ab. Für Spieler 1 allein: `payload={"port": 1}`.
+- `cd_read_log` protokolliert nur die Start-LBA jedes Lesevorgangs. `lba_lo`/`lba_hi` filtern `entries`, nicht `total`.
+- `overlay_loader_status.dispatch_native` zählt nur DLL-Aufrufe. Treffer im statischen Shard stehen in `overlay_static_entries.total_hits`.
 
 ## Was nie ins Repo gehört
 

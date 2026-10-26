@@ -120,7 +120,8 @@ Erst wenn ein Meilenstein erfüllt ist, beginnt der nächste. Jeder bekommt eine
   - `SHELL.BIN` liegt an `0x80039F28`. Belegt ist das im RAM und im Lader-Code der Boot-EXE (`lui a1,0x8004` / `addiu a1,a1,0x9F28` bei `0x8003728C`). Seit M1 steht das im Rezept (`allow_missing`, die Pipeline findet die Funktionen selbst).
   - Die Overlays sind rohe Dateien ohne PS-X-Header. Das erste Wort ist 7 (`SHELL`), 5 (`LEVEL`) oder 6 (`LEVEL2P`).
   - `LEVEL.BIN` ersetzt `SHELL.BIN` an derselben Basis `0x80039F28`. Belegt ist das im RAM nach NEW GAME, Briefing und Laden, bei M1. Seit M2 steht es als zweites Image im Rezept, und Mission 1, Level 1 läuft mit 50 Bildern/s.
-  - Wohin `LEVEL2P.BIN` geladen wird, wird in M3 geprüft.
+  - `LEVEL2P.BIN` (Splitscreen) liegt ebenfalls an `0x80039F28`. Belegt ist das im RAM nach MULTIPLAYER → START GAME (Overlay-Wort 6), bei M3. Seit M3 steht es als drittes Image im Rezept (13.664 native Einstiege), `mp_smoke` prüft den Splitscreen.
+  - Fünf Funktionen der Boot-EXE rufen nur die Overlays auf, darunter der Stapel-Umschalter `0x8001535C`. Sie stehen seit M3 als Seeds in `seeds/ghidra_funcs.txt`, sonst liefen sie bei jedem Aufruf interpretiert.
 - **Übergangslösung:** Mit `[runtime] overlay_cache = true` wird Code beim Spielen eingefangen und mit `tools/compile_overlays.py` kompiliert. Was fehlt, läuft im Interpreter: korrekt, aber langsamer.
 - **Fortschritt messen:**
   - `tools/stall_report.py` vergleicht `dispatch_native` mit `dispatch_interp_fallback`.
@@ -194,7 +195,7 @@ Erst wenn ein Meilenstein erfüllt ist, beginnt der nächste. Jeder bekommt eine
   - **Zustände:** `savestate` / `savestate_status`. Die Parameter sind undokumentiert, ich lese sie im Quellcode nach. Damit lege ich Testpunkte an, z. B. Levelstart M1L1.
   - **Tempo:** `turbo enabled=1` für schnelles Durchlaufen
   - **Abdeckung:** `tools/stall_report.py`, `overlay_loader_status`
-- **Fenster:** Das Spiel läuft mit `--hidden-window` oder sichtbar. Ton stumm über `PSX_HOST_MUTE=1`, wenn er nicht gebraucht wird.
+- **Fenster:** Das Spiel läuft mit `--hidden-window` oder sichtbar. Ton stumm über `SDL_AUDIODRIVER=dummy` (`PSX_HOST_MUTE` wirkt in dieser Runtime nicht, Stand M1).
 - **Regressionsschutz:** Pro Meilenstein lege ich kurze Smoke-Skripte unter `tests/smoke/` an: Spiel starten, an Punkt X navigieren, Screenshot machen, auf Absturz und Bildinhalt prüfen. Vor jedem Commit laufen alle bisherigen Smoke-Tests.
 - **Vergleich mit dem Original:** Wenn das Verhalten unklar ist, ziehen wir einen Emulator heran (z. B. DuckStation portabel auf D:). Nur bei Bedarf.
 - **Du testest:** Spielgefühl (Maus, Flüssigkeit), kompletter Durchlauf in M3, alles Subjektive. Gefundene Fehler meldest du mit Mission/Level und möglichst einem Speicherstand.
@@ -206,7 +207,8 @@ Erst wenn ein Meilenstein erfüllt ist, beginnt der nächste. Jeder bekommt eine
 | Framework ist Beta und ändert sich täglich | Fehler in der Runtime, Updates können Dinge kaputt machen | Gepinnter Stand, Updates nur bewusst, Framework-Fehler als Patch oder Upstream-Issue |
 | Noch nie ein Shooter portiert | Unbekannte Probleme mit GTE, Timing, Overlays | Meilensteine klein halten, früh in echte Levels (M2) |
 | PAL/50 Hz nirgends dokumentiert | Timing- oder Tempo-Fehler | In M1/M2 Tempo mit dem Original vergleichen |
-| Ladeadresse von `LEVEL2P.BIN` noch unbelegt (`SHELL.BIN` und `LEVEL.BIN`: `0x80039F28`, belegt in M1) | Rezept stimmt nicht | Im RAM prüfen (M3), Rückfall auf Runtime-Capture |
+| ~~Ladeadresse von `LEVEL2P.BIN` noch unbelegt~~ | Rezept stimmt nicht | Erledigt in M3: ebenfalls `0x80039F28`, im RAM belegt, drittes Image im Rezept |
+| Splitscreen mit echtem zweiten Controller nur per Debug-Port geprüft | Gerätezuweisung im Launcher könnte haken | Du prüfst einmal Tastatur + Gamepad (M3, `PLAYTEST.md`) |
 | Maus braucht Framework-Patch | Wartung bei Framework-Updates | Patch klein halten, später Upstream-PR anbieten |
 | Zielhilfe/Grenzen im Original | Maus fühlt sich „gebremst“ an | In M4 analysieren, im Maus-Modus abschaltbar machen |
 | Frame-Gen verwirft schnelle Drehungen | Ruckeln beim Umsehen | Stufe 2 (Render Passes) einplanen |
