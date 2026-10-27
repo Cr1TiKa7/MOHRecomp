@@ -162,3 +162,13 @@ def level_lbas(mission, level):
 def count_shots(magazine_samples):
     """Number of decrements in a series of magazine readings (reloads go up)."""
     return sum(1 for a, b in zip(magazine_samples, magazine_samples[1:]) if b < a)
+
+# Widescreen (M5, moh.enhancement.widescreen). Native-wide 16:9 widens the
+# 512-wide display by 170 pixels (85 per side); screenshots are 682 wide.
+# The gameplay gate is the plugin's world-scene predicate (yaw store or aim-X
+# rate load ran in the last 12 VBlanks; a game.toml gameplay_state gate never
+# engaged, see the M5 ledger).
+WS_NW_EXTRA = 170
+WS_WIDE_WIDTH = 682
+WS_GAMEPLAY_GATE = "plugin world-scene predicate"
+WS_PAUSE_PATH = "native43"   # filled in from the first run (Task 1 step 5)

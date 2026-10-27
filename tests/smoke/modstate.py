@@ -21,16 +21,18 @@ def _toml_value(value):
     return '"' + str(value).replace("\\", "\\\\").replace('"', '\\"') + '"'
 
 
-def state_text(values):
-    lines = ["format_version = 2", "", "[[feature]]",
-             f'package_id = "{PACKAGE_ID}"', f'id = "{FEATURE_ID}"', "enabled = true"]
-    if values:
-        lines += ["", "[feature.values]"] + [f"{k} = {_toml_value(v)}" for k, v in values.items()]
+def state_text(values, features=None):
+    """features: [(package_id, feature_id, values), ...]; None = the mouse feature with values."""
+    lines = ["format_version = 2"]
+    for package_id, feature_id, vals in features or [(PACKAGE_ID, FEATURE_ID, values)]:
+        lines += ["", "[[feature]]", f'package_id = "{package_id}"', f'id = "{feature_id}"', "enabled = true"]
+        if vals:
+            lines += ["", "[feature.values]"] + [f"{k} = {_toml_value(v)}" for k, v in vals.items()]
     return "\n".join(lines) + "\n"
 
 
 @contextlib.contextmanager
-def enabled(build_dir, values):
+def enabled(build_dir, values, features=None):
     path = os.path.join(build_dir, "mods", "state.toml")
     original = None
     if os.path.isfile(path):
@@ -39,7 +41,7 @@ def enabled(build_dir, values):
     os.makedirs(os.path.dirname(path), exist_ok=True)
     try:
         with open(path, "w", encoding="utf-8", newline="") as f:
-            f.write(state_text(values))
+            f.write(state_text(values, features))
         yield path
     finally:
         if original is None:

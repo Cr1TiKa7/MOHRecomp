@@ -32,6 +32,17 @@ class EnabledTests(unittest.TestCase):
         self.assertIs(feature["enabled"], True)
         self.assertEqual(feature["values"], {"sensitivity": 40, "invert_y": False})
 
+    def test_several_features_each_with_their_values(self):
+        features = [("moh.enhancement.widescreen", "widescreen", {}),
+                    ("psx.enhancement.internal-resolution", "internal-resolution", {"resolution": "4k"})]
+        with modstate.enabled(self.build, None, features=features):
+            with open(self.state, "rb") as f:
+                state = tomllib.load(f)
+        got = [(f["package_id"], f["id"], f["enabled"], f.get("values", {})) for f in state["feature"]]
+        self.assertEqual(got, [("moh.enhancement.widescreen", "widescreen", True, {}),
+                               ("psx.enhancement.internal-resolution", "internal-resolution", True,
+                                {"resolution": "4k"})])
+
     def test_restores_an_existing_file_byte_for_byte(self):
         original = b"format_version = 2\r\n# player's own choice\n"
         with open(self.state, "wb") as f:

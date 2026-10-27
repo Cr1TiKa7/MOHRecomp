@@ -1,0 +1,23 @@
+format_version = 11
+id = "moh.enhancement.widescreen"
+version = "1.0.0"
+name = "Widescreen"
+author = "MOHRecomp"
+description = "16:9 for Medal of Honor: in levels the picture is rendered wider (more of the world at the sides, nothing stretched). Menus, loading screens and films stay 4:3."
+license = "MIT"
+resolver = "declarative"
+save_compatibility = "shared"
+
+[[target]]
+game_id = "SLES-02470"
+
+[[feature]]
+id = "widescreen"
+name = "Widescreen 16:9"
+description = "Native-wide 16:9 during gameplay; 4:3 with side bars elsewhere."
+group = "Visual"
+default_enabled = false
+
+[[plugin]]
+feature = "widescreen"
+id = "moh.widescreen"

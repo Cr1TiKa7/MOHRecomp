@@ -95,3 +95,9 @@ add_custom_command(TARGET psx-runtime POST_BUILD
         -P "${CMAKE_CURRENT_SOURCE_DIR}/cmake/copy_if_missing.cmake"
     COMMENT "Staging keybinds.ini (only if missing)"
     VERBATIM)
+
+# Widescreen plugin (M5), active only with the moh.enhancement.widescreen
+# package enabled. Shares the gameplay rule in mouselook.c.
+target_sources(psx-runtime PRIVATE
+    "${CMAKE_CURRENT_SOURCE_DIR}/src/widescreen/moh_widescreen_plugin.c")
+target_include_directories(psx-runtime PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}/src/mouse")
