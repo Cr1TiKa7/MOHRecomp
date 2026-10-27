@@ -155,7 +155,7 @@ Umgesetzt in M4, Plan `docs/superpowers/plans/2026-10-26-moh-m4-mouse-keyboard.m
   - der Ladebefehl der Neigungsrate (normales Spielen, freies Hoch/Runter)
   - die beiden Raten-Ladebefehle des Zielmodus
 - Die Maus speist dieselben Werte wie das Pad. Die Grenzen und die Kamera-Logik des Spiels bleiben dadurch unverändert.
-- **Freies Hoch/Runter** (Nachtrag 2026-10-27, auf Wunsch des Nutzers): Das Spiel neigt die Kamera auch außerhalb des Zielmodus, über den rechten Stick eines DualShock, und hält die Neigung. Schüsse folgen ihr (Einschusslöcher in der Bildmitte, gemessen bei −56° bis +17°). Die Schusslogik ändert sich also nicht. Ein vierter Hook speist die senkrechte Mausbewegung in diese Neigungsrate (`0x80080470`). Die Paket-Option `free_look` (Standard an) schaltet das ab; dann gibt es Hoch/Runter nur im Zielmodus.
+- **Freies Hoch/Runter** (Nachtrag 2026-10-27, auf Wunsch des Nutzers): Das Spiel neigt die Kamera auch außerhalb des Zielmodus, über den rechten Stick eines DualShock, und hält die Neigung. Schüsse folgen ihr (Einschusslöcher in der Bildmitte, gemessen bei −56°, −17° und +17°). Die Schusslogik ändert sich also nicht. Ein vierter Hook speist die senkrechte Mausbewegung in diese Neigungsrate (`0x80080470`). Die Paket-Option `free_look` (Standard an) schaltet das ab; dann gibt es Hoch/Runter nur im Zielmodus.
 
 **Tasten:**
 - Über die `keybinds.ini` des Frameworks, die die Launcher-Seite Controls bearbeitet. Maustasten sind dort `Mouse1`…`Mouse5`.

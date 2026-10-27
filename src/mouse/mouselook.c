@@ -40,6 +40,12 @@ void moh_look_set_free_look(MohLook *look, int on) {
 void moh_look_reset(MohLook *look) {
     look->pend_x = look->pend_y = 0.0;
     look->rem_x = look->rem_y = 0.0;
+    look->tilt_due = 0;
+}
+
+void moh_look_drop_y(MohLook *look) {
+    look->pend_y = 0.0;
+    look->rem_y = 0.0;
 }
 
 void moh_look_motion(MohLook *look, double dx, double dy) {
@@ -52,12 +58,13 @@ static double per_count(const MohLook *look) {
 }
 
 int32_t moh_look_take_yaw(MohLook *look) {
+    if (look->tilt_due)          /* last frame skipped the tilt load (L3 held) */
+        moh_look_drop_y(look);
     const int32_t yaw = convert(look->pend_x * per_count(look), &look->rem_x, MOH_LOOK_YAW_MAX);
     look->pend_x = 0.0;
-    if (!look->free_look) {
-        look->pend_y = 0.0;
-        look->rem_y = 0.0;
-    }
+    look->tilt_due = look->free_look;
+    if (!look->free_look)
+        moh_look_drop_y(look);
     return yaw;
 }
 
@@ -72,6 +79,7 @@ int32_t moh_look_take_aim_y(MohLook *look) {
     const int32_t rate = convert(sign * look->pend_y * per_count(look) * look->y_rate_per_fixed,
                                  &look->rem_y, MOH_LOOK_RATE_MAX);
     look->pend_y = 0.0;
+    look->tilt_due = 0;
     return rate;
 }
 

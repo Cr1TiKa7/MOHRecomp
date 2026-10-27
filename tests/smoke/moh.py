@@ -130,7 +130,9 @@ AIM_RATE_SP_OFFSET = 16
 # the player control function 0x8007F8E8; the game then does tilt -= rate >> 1
 # and clamps to TILT_MIN..TILT_MAX, and keeps the tilt when the stick is
 # released. Shots follow the tilt (M4 free look, bullet holes at the screen
-# centre for tilts of -56..+17 degrees, 2026-10-27).
+# centre, measured at -56, -17 and +17 degrees, 2026-10-27). L3 held
+# recentres the view and skips this load; mouse_smoke checks that nothing
+# piles up then.
 TILT_RATE_PC = 0x80080470
 TILT_RATE_WORD = 0x8FA30010
 

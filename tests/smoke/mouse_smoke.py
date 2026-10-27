@@ -43,6 +43,8 @@ SETTLE_SECS = 1.0         # long enough for a few game frames at 25 Hz
 AIM_SECS = 0.5
 RELEASE_SECS = 1.5
 PAUSE_SECS = 1.5
+CLAMP_STEP_SECS = 0.2     # a few game frames: each staged move is taken by one frame
+CENTRE_SECS = 2.5         # L3 decays the tilt by 3/4 per game frame: down to 0 or 1 by then
 LEVEL_SECS = 300.0
 HOOK_SPAN = 0x40          # dirty_ram_stats window around each hook site
 HOOKS = ("yaw", "aim_x", "aim_y", "tilt")
@@ -174,17 +176,42 @@ def check_on(proc, port, out_dir, deadline):
     psxrun.release(port)
     time.sleep(SETTLE_SECS)
 
+    # L3 (the game's action 7) recentres the view and skips the tilt rate load;
+    # motion made meanwhile must not land as a jump on release. Under debug
+    # input the mouse policy's RESETs also clear pending motion, so the pile-up
+    # itself is covered by the C test (skipped_tilt_load_drops_vertical).
+    psxrun.hold_buttons(port, "l3")
+    time.sleep(CENTRE_SECS)
+    centred = read_s32(port, tilt_addr)
+    if abs(centred) > 1:
+        raise SmokeFailure(f"L3 did not recentre the view: tilt {centred}")
+    move(port, 0, 50)
+    time.sleep(SETTLE_SECS)
+    expect("camera tilt with L3 held after vertical motion", read_s32(port, tilt_addr), centred)
+    psxrun.release(port)
+    time.sleep(SETTLE_SECS)
+    expect("camera tilt after releasing L3", read_s32(port, tilt_addr), centred)
+
+    for want, dy in ((moh.TILT_MAX, -100000), (moh.TILT_MIN, 100000)):
+        for _ in range(12):
+            move(port, 0, dy)
+            time.sleep(CLAMP_STEP_SECS)
+        time.sleep(SETTLE_SECS)
+        expect("camera tilt clamped by the game", read_s32(port, tilt_addr), want)
+
     yaw2 = read_s32(port, yaw_addr)
     dropped = counter(port, "moh_mouse.dropped")
+    tilt2 = read_s32(port, tilt_addr)
     psxrun.press(port, "start")
     time.sleep(PAUSE_SECS)
-    move(port, 300, 0)
+    move(port, 300, 50)
     time.sleep(SETTLE_SECS)
     if counter(port, "moh_mouse.dropped") <= dropped:
         raise SmokeFailure("motion during the pause was not dropped (moh_mouse.dropped unchanged)")
     psxrun.press(port, "start")
     time.sleep(PAUSE_SECS)
     expect("yaw after the pause", read_s32(port, yaw_addr), yaw2)
+    expect("camera tilt after the pause", read_s32(port, tilt_addr), tilt2)
 
     for name, pc in (("yaw", moh.YAW_STORE_PC), ("aim x", moh.AIM_X_RATE_PC), ("aim y", moh.AIM_Y_RATE_PC),
                      ("tilt", moh.TILT_RATE_PC)):
@@ -239,7 +266,16 @@ def check_no_free_look(proc, port, out_dir, deadline):
     time.sleep(SETTLE_SECS)
     expect("yaw with free look off", s32(read_s32(port, yaw_addr) - yaw0), expected_yaw(100, SENSITIVITY))
     expect("camera tilt with free look off", read_s32(port, tilt_addr), tilt0)
-    return "free_look_off=yaw only"
+    pitch_addr = pl + moh.PLAYER_PITCH_OFFSET
+    psxrun.hold_buttons(port, "r2")
+    time.sleep(AIM_SECS)
+    expect("crosshair entering aim mode with free look off", read_s32(port, pitch_addr), 0)
+    move(port, 0, -20)
+    time.sleep(SETTLE_SECS)
+    expect("crosshair after move 0 -20 with free look off", read_s32(port, pitch_addr),
+           crosshair_after(0, expected_y_rate(-20, SENSITIVITY)))
+    psxrun.release(port)
+    return "free_look_off=yaw+aim only"
 
 
 def run(args, label, check, package, values=None):

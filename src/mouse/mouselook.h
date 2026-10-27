@@ -3,8 +3,10 @@
  * (normal play), the normal-play tilt rate (free look) and the two aim-mode
  * rates (R2 held). No runtime dependencies (unit-tested on its own,
  * tests/native/test_mouselook.c). All calls on the emulation thread. Each
- * game frame runs either the yaw store and the tilt rate load (normal play)
- * or the aim function (aim mode), and those hooks take all pending motion. */
+ * game frame runs either the yaw store and usually the tilt rate load
+ * (normal play) or the aim function (aim mode), and those hooks take all
+ * pending motion. While L3 recentres the view the game skips the tilt rate
+ * load; the next yaw store then drops the vertical motion it kept. */
 #include <stdint.h>
 
 #define MOH_LOOK_SENS_MIN 1
@@ -24,6 +26,7 @@ typedef struct MohLook {
     int sensitivity;
     int invert_y;
     int free_look;           /* normal play: vertical motion tilts the camera */
+    int tilt_due;            /* the yaw store kept vertical motion for the tilt load */
     int y_rate_per_fixed;    /* vertical aim rate units per 16.16 look-angle unit */
     double pend_x, pend_y;   /* mouse counts not taken yet */
     double rem_x, rem_y;     /* sub-unit remainders */
@@ -34,8 +37,10 @@ void    moh_look_set(MohLook *look, int sensitivity, int invert_y);   /* live op
 void    moh_look_set_free_look(MohLook *look, int on);                /* off after init */
 void    moh_look_reset(MohLook *look);                                /* mouse policy RESET */
 void    moh_look_motion(MohLook *look, double dx, double dy);         /* mouse policy MOTION */
+void    moh_look_drop_y(MohLook *look);                               /* forget vertical motion */
 /* Normal play, at the yaw store: the 16.16 yaw delta. Vertical motion stays
- * for the tilt rate load with free look, and is dropped without it. */
+ * for the tilt rate load with free look, and is dropped without it, or when
+ * the previous frame's tilt load did not take it. */
 int32_t moh_look_take_yaw(MohLook *look);
 /* Aim mode, at the rate loads: the horizontal rate (one unit per 16.16 yaw
  * unit; the game turns by the full rate past the crosshair limit) and the

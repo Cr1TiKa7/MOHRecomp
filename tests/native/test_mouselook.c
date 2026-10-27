@@ -63,6 +63,43 @@ static void free_look_keeps_vertical(void) {
     CHECK(moh_look_take_aim_y(&look) == 0);
 }
 
+static void free_look_carries_the_fraction(void) {
+    init(40, 0);
+    moh_look_set_free_look(&look, 1);
+    int32_t sum = 0;
+    for (int i = 0; i < 10; i++) {               /* 8.192 rate units per frame */
+        moh_look_motion(&look, 0, 0.0001);
+        moh_look_take_yaw(&look);
+        sum += moh_look_take_aim_y(&look);
+    }
+    CHECK(sum == 81);                            /* 80 if the yaw store dropped the remainder */
+}
+
+static void skipped_tilt_load_drops_vertical(void) {
+    init(40, 0);
+    moh_look_set_free_look(&look, 1);
+    moh_look_motion(&look, 0, 10);
+    moh_look_take_yaw(&look);                    /* frame 1: no tilt load (L3 held) */
+    moh_look_motion(&look, 0, 10);
+    moh_look_take_yaw(&look);                    /* frame 2: frame 1's motion is gone */
+    CHECK(moh_look_take_aim_y(&look) == 0);      /* not 2 * 819200 at once */
+    moh_look_motion(&look, 0, 10);
+    moh_look_take_yaw(&look);                    /* frame 3: the load ran last frame */
+    CHECK(moh_look_take_aim_y(&look) == 819200);
+}
+
+static void drop_y(void) {
+    init(40, 0);
+    moh_look_set_free_look(&look, 1);
+    moh_look_motion(&look, 0, 0.0001);
+    CHECK(moh_look_take_aim_y(&look) == 8);      /* leaves 0.192 */
+    moh_look_motion(&look, 100, 10);
+    moh_look_drop_y(&look);
+    CHECK(moh_look_take_yaw(&look) == 4096000);  /* horizontal motion stays */
+    moh_look_motion(&look, 0, 0.0001);
+    CHECK(moh_look_take_aim_y(&look) == 8);      /* 8.192 alone: the remainder went too */
+}
+
 static void aim_x_rate(void) {
     init(40, 0);
     moh_look_motion(&look, 100, 0);
@@ -165,6 +202,9 @@ int main(void) {
     reset_drops();
     yaw_drops_vertical();
     free_look_keeps_vertical();
+    free_look_carries_the_fraction();
+    drop_y();
+    skipped_tilt_load_drops_vertical();
     aim_x_rate();
     aim_y_rate();
     aim_axes_independent();

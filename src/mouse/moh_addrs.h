@@ -31,7 +31,11 @@
 
 /* Normal play: the right stick's tilt rate, loaded from 16($sp) in the same
  * player function; the game does tilt -= rate >> 1 (clamped to the tilt
- * limits) and keeps the tilt. Shots follow it (free look, M4 follow-up). */
+ * limits) and keeps the tilt. Shots follow it (free look, M4 follow-up).
+ * Only look mode 1 (an analog pad, which the package forces) runs this load;
+ * a digital pad (mode 2, its own load at 0x8008064C) or mode 0 would leave
+ * free look without effect. L3 (the game's action 7) recentres the view
+ * and skips this load while held. */
 #define MOH_TILT_RATE_PC          0x80080470u  /* LW $v1, 16($sp) */
 #define MOH_TILT_RATE_WORD        0x8FA30010u
 
