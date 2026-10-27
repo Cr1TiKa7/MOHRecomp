@@ -79,7 +79,7 @@ Falls das Kompilieren der Overlays `gcc` braucht, kommt MSYS2 MinGW nach `D:\msy
   - `-Yes -EnableRecompUi -NoNetplay -NoFetchBoxart -NoGithub -Generate -EnableBuild`
   - Die genauen Flag-Namen prüfe ich vorher in der Hilfe des Skripts.
 - **Framework:** PSXRecomp ist als Submodul auf einen festen Commit gepinnt. Aktualisiert wird nur bewusst, mit Notiz im Commit.
-- **Eigene Framework-Änderungen** (bisher keine; die Maus kam in M4 ohne aus) liegen als Patches im Repo unter `patches/psxrecomp/` und werden beim Bauen angewandt. Erweist sich das als zu umständlich, wechseln wir auf einen eigenen Fork. Was allgemein nützlich ist, kann später als Pull Request zurück ins Framework.
+- **Eigene Framework-Änderungen** (bisher keine; Maus in M4 und Bild in M5 kamen ohne aus) liegen als Patches im Repo unter `patches/psxrecomp/` und werden beim Bauen angewandt. Erweist sich das als zu umständlich, wechseln wir auf einen eigenen Fork. Was allgemein nützlich ist, kann später als Pull Request zurück ins Framework.
 - **Nie im Repo:** Disc-Image, BIOS-Dumps, Logs, `overlay_captures.json` (enthält Spielcode im Originalwortlaut), Speicherstände.
 - **Features als Mod-Pakete:** Jedes Feature ist ein eigenes, abschaltbares Paket unter `mods/preloaded/packages/`:
   - `moh.input.mouse-keyboard`
@@ -166,18 +166,35 @@ Umgesetzt in M4, Plan `docs/superpowers/plans/2026-10-26-moh-m4-mouse-keyboard.m
 
 ### 6.3 Bild (M5)
 
-- **Auflösung und Stabilität:** die eingebauten Pakete `psx.enhancement.internal-resolution` (bis 4K) und `psx.enhancement.pgxp`.
-- **16:9:** Das Paket `moh.enhancement.widescreen` ruft bei Aktivierung `psx_mod_set_fixed_display_aspect()` auf. Das kann zwei Dinge bedeuten:
-  - GTE-X-Stauchung (Standardweg)
-  - echtes breiteres Rendern (Native-Wide)
+Umgesetzt in M5, Plan `docs/superpowers/plans/2026-10-27-moh-m5-widescreen.md`. Drei Punkte weichen vom ursprünglichen Vorgehen ab, der Nutzer hat sie am 2026-10-27 freigegeben (unten als Abweichung 1–3 markiert).
 
-  Ob Native-Wide unter OpenGL geht, ist laut Doku widersprüchlich. Ich teste es zuerst, sonst nehmen wir die Stauchung.
-- **Ausblenden am Rand (Culling):** Der Code, der Objekte außerhalb von 4:3 verwirft, liegt sehr wahrscheinlich in `LEVEL.BIN`. `psxrecomp-analyze --scan-widescreen` durchsucht nur die Boot-EXE, deshalb suche ich die Stellen von Hand:
-  - Anhaltspunkt sind Laufzeitbeobachtungen, also Objekte, die am Rand verschwinden.
-  - Die Stellen kommen als `[widescreen.cull]`-Einträge in die Konfiguration (`slti_sites`, `bltz_sites`, `screen_x_sites` usw.), danach wird neu generiert.
-  - Ausblenden in Weltkoordinaten vor der Projektion braucht einen eigenen Patch.
-- **HUD:** `auto_ui_anchor = "edges"`, damit Munition und Gesundheit an den Bildrand rutschen. Für einzelne Elemente `psx_mod_anchor_hud_primitive`. Das Fadenkreuz bleibt in der Mitte und unverzerrt.
-- **Videos:** werden automatisch als 4:3 mit Pillarbox gezeigt.
+**16:9 als echtes breiteres Rendern:**
+- Native-Wide läuft unter OpenGL. Das Paket `moh.enhancement.widescreen` (standardmäßig aus) setzt bei Aktivierung `psx_mod_set_fixed_display_aspect(16, 9)`. Im Level ist das Bild dann 682 statt 512 Pixel breit (85 je Seite). Gestaucht wird nie.
+- **Nur im Spiel** (Abweichung 2): Die Menüszenen sind nur 4:3 groß gebaut. Ein Spiel-Kriterium im Plugin (`psx_mod_set_world_scene_predicate`) steuert deshalb den Wechsel, nicht der allgemeine GTE-Detektor:
+  - `LEVEL.BIN` ist geladen.
+  - Der Gier-Store oder das Laden der Zielrate X lief in den letzten 12 VBlanks, dieselben Stellen wie bei der Maus.
+
+  Menüs, Briefing, Ladebild, Pause und Videos bleiben 4:3 mit Pillarbox, der Splitscreen (`LEVEL2P.BIN`) ebenfalls.
+- **Himmel:** Er besteht aus acht Farbverlaufsstreifen genau über 4:3. Das Plugin markiert sie als Hintergrund, damit sie die Seitenstreifen füllen. Dafür nutzt es die runtime-interne Funktion `gpu_ws_tag_background_prim`, denn eine `psx_mod_`-Variante gibt es nicht.
+
+**Ausblenden am Rand (Culling):** zwei Bildschirm-Tests, gefunden durch Laufzeitbeobachtung und Disassembly:
+- der Dreieckstest der Boot-EXE (`0x80011214`, Breite 540)
+- der Bounding-Box-Test der Levelknoten in `LEVEL.BIN` (`0x8008B9C8`)
+
+Beide stehen als `[widescreen.cull]`-Einträge (`bltz_sites`, `screen_x_sites`, `clip_edge_x_load_sites`) in `game.toml` und wirken nur bei 16:9. Einen Test in Weltkoordinaten vor der Projektion gab es nicht, ein eigener Patch war nicht nötig.
+
+**HUD** (Abweichung 1): `auto_ui_anchor = "edges"` wirkt nur im Stauch-Modus, in Native-Wide ist es aus. Stattdessen:
+- Der Kompass (feste Pakete) wandert über `nw_left_hud_packet_lo/hi` an den linken Rand.
+- Die Munitionsanzeige teilt sich den Paketbereich mit der Welt. Das Plugin verankert ihre Zeichen und ihr Symbol einzeln mit `psx_mod_anchor_hud_primitive` am rechten Rand.
+- Fadenkreuz, Meldungen und Untertitel bleiben mittig und unverzerrt.
+
+**Videos:** werden automatisch als 4:3 mit Pillarbox gezeigt.
+
+**Auflösung und PGXP** (Abweichung 3):
+- Die interne Auflösung bleibt Wahl des Spielers über das eingebaute Paket `psx.enhancement.internal-resolution`, bis 4K.
+- PGXP ist standardmäßig an. Dafür liegt eine Kopie des eingebauten Pakets `psx.enhancement.pgxp` (gleiche ID und Version, nur `default_enabled = true`) unter `mods/preloaded/packages/`.
+- `game.toml` setzt `[video] pgxp_tolerance = -1.0`. In M1L1 haben damit 58 % der Dreiecke PGXP-Präzision statt 25 %, ohne sichtbare Risse.
+- Die eigene PGXP-Runtime-Variante (76 %) kostet rund 16 % Durchsatz und fällt mit PGXP unter 50 Bilder/s. Sie ist deshalb nicht im Einsatz.
 
 ### 6.4 Höhere Bildrate (M6)
 
@@ -221,7 +238,9 @@ Umgesetzt in M4, Plan `docs/superpowers/plans/2026-10-26-moh-m4-mouse-keyboard.m
 | ~~Maus braucht Framework-Patch~~ | Wartung bei Framework-Updates | Erledigt in M4: kein Patch nötig, die Maus-API der Runtime liefert rohe Bewegungen |
 | Zielhilfe/Grenzen im Original | Maus fühlt sich „gebremst“ an | M4: Zielhilfe ist die Spieloption EASY AIM; Grenzen und Kamera bleiben die des Spiels. Du prüfst das Gefühl bei der Abnahme. |
 | Frame-Gen verwirft schnelle Drehungen | Ruckeln beim Umsehen | Stufe 2 (Render Passes) einplanen |
-| Native-Wide unter OpenGL unklar | Nur Stauchungs-Widescreen | Früh in M5 testen |
+| ~~Native-Wide unter OpenGL unklar~~ | Nur Stauchungs-Widescreen | Erledigt in M5: Native-Wide läuft unter OpenGL, nur im Spiel; Rand-Culling über `[widescreen.cull]` |
+| Breitbild-Himmel nutzt eine runtime-interne Funktion (`gpu_ws_tag_background_prim`) | Ein Framework-Update kann sie umbenennen, der Build bricht dann sichtbar | Bei Framework-Updates prüfen, sonst Upstream um eine `psx_mod_`-Variante bitten |
+| PGXP-Override ist eine Kopie des eingebauten Manifests | Ein Framework-Update am eingebauten Paket kommt bei uns nicht an | Bei Framework-Updates die Kopie neu ableiten |
 | Overlay-Kompilierung braucht evtl. `gcc` | Extra-Installation | MSYS2 auf D:, erst bei Bedarf |
 | Spielgefühl kann ich nicht beurteilen | Abnahme hängt an dir | Klare Abnahmepunkte in M3/M4/M6 |
 

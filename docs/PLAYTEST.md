@@ -80,3 +80,16 @@ Im Release-Build (`build-release\MOH_Recompiled.exe`). Die neue Tastenbelegung l
 9. **EASY AIM** (Options → Controller) einmal an und einmal aus. Was ist dir lieber? ______
 10. **Gamepad:** ein paar Minuten nur mit dem Pad, bei eingeschaltetem Paket. Das Pad verhält sich dann wie ein DualShock am Original: Die Sticks wirken zusätzlich, im Zielmodus zielt nur noch der linke Stick (nicht das Steuerkreuz), und die Neigung bleibt nach dem Zielen stehen. Ist das für dich in Ordnung? ______
 11. **Maus verloren?** Gibt das Spiel die Maus mitten im Spiel frei, ohne Pause, Menü oder Zwischensequenz, sodass der nächste Klick nicht schießt? Wenn ja: wo und wie oft? ______
+
+## M5: Breitbild und Bildqualität (Abnahme)
+
+Im Release-Build (`build-release\MOH_Recompiled.exe`). PGXP ist dort schon an, Breitbild und Auflösung schaltest du selbst ein. Hinter jeden Punkt `ok` oder was dir auffällt.
+
+1. **Einschalten:** Launcher → Mods → Visual → „Widescreen 16:9“ an. ______
+2. **Nur im Spiel breit:** Im Level füllt das Bild 16:9. Menüs, Briefing, Ladebild, Pause, Missionsauswertung und Videos bleiben 4:3 mit schwarzen Seitenbalken, nichts ist gestreckt oder halb schwarz. Wo stimmt das nicht? ______
+3. **Ränder beim Drehen:** Schnell drehen, auch in Innenräumen und mit Gegnern am Bildrand, in mehreren Levels. Verschwinden am linken oder rechten Rand Wände, Boden oder Gegner, oder bleibt dort Schwarz stehen? Wo? ______
+4. **HUD:** Der Kompass sitzt links oben am Rand, die Munition rechts oben. Fadenkreuz (rechte Maustaste bzw. R2), Meldungen und Untertitel bleiben in der Mitte. Passt das? ______
+5. **4K:** Launcher → Mods → „Internal Resolution“ auf 4K stellen und ein Level spielen. Läuft es flüssig, ohne Ruckler? ______
+6. **PGXP an und aus:** Launcher → Mods → „PGXP Precision“ einmal aus, einmal an (Voreinstellung). Wackeln Wände und Boden mit PGXP noch sichtbar? Siehst du mit PGXP Risse, Lücken oder flackernde Flächen? ______
+7. **Splitscreen mit Breitbild-Paket:** Multiplayer starten. Er läuft in 4:3, das ist so gewollt. Startet er und lässt er sich spielen? ______
+8. **Zusammen mit der Maus:** Maus-Paket und Breitbild-Paket gleichzeitig an. Funktioniert alles wie gewohnt (Einfangen, Drehen, Zielen)? ______
