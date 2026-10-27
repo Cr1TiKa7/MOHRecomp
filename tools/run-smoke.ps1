@@ -11,7 +11,7 @@
 # yaw, aim-mode pitch, pause, split screen and package off in three boots (~12 min); not part of 'all'.
 # 'widescreen' switches the widescreen package on and checks 16:9 only in gameplay (film, menu,
 # poster and pause stay 4:3), HUD anchors, edge culling in M1L1/M3L1/M7L1 and package off, in five boots (~11 min); not part of 'all'.
-# 'pgxp' runs M1L1 at 4K with PGXP left at its default and checks the corrected-triangle share (~5 min); not part of 'all'.
+# 'pgxp' runs M1L1 at 4K with the PGXP package on and checks the corrected-triangle share (~5 min); not part of 'all'.
 param(
     [ValidateSet('dev', 'release')][string]$Build = 'dev',
     [ValidateSet('boot', 'intro', 'menu', 'coverage', 'level', 'save', 'sweep', 'coverage-long', 'mp', 'mouse', 'widescreen', 'pgxp', 'all')][string]$Test = 'boot',

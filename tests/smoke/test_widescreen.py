@@ -72,11 +72,28 @@ class FindPatchTests(unittest.TestCase):
 
     def test_finds_the_shift_of_a_mark(self):
         narrow, wide = self.png("n.png", 40, 10), self.png("w.png", 60, 30)
-        self.assertEqual(widescreen_smoke.find_patch_x(wide, narrow, (10, 1, 16, 5), (0, 20)), 20)
+        self.assertEqual(widescreen_smoke.find_patch_x(wide, narrow, (10, 1, 16, 5), (0, 20)), (20, 0.0))
 
     def test_unmoved_mark(self):
         narrow, wide = self.png("n.png", 40, 10), self.png("w.png", 60, 10)
-        self.assertEqual(widescreen_smoke.find_patch_x(wide, narrow, (10, 1, 16, 5), (0, 20)), 0)
+        self.assertEqual(widescreen_smoke.find_patch_x(wide, narrow, (10, 1, 16, 5), (0, 20)), (0, 0.0))
+
+    def test_negative_shift(self):
+        narrow, wide = self.png("n.png", 40, 10), self.png("w.png", 60, 4)
+        self.assertEqual(widescreen_smoke.find_patch_x(wide, narrow, (10, 1, 16, 5), (-20, 20)), (-6, 0.0))
+
+    def test_missing_mark_costs_a_lot(self):
+        narrow, wide = self.png("n.png", 40, 10), self.png("w.png", 60, 100)
+        _dx, cost = widescreen_smoke.find_patch_x(wide, narrow, (10, 1, 16, 5), (0, 20))
+        self.assertGreater(cost, 50)
+
+
+class TagStatsTests(unittest.TestCase):
+    def test_drawn_share(self):
+        self.assertAlmostEqual(widescreen_smoke.drawn_share({"tag_calls": 200, "hit": 190}), 0.95)
+
+    def test_no_tags(self):
+        self.assertEqual(widescreen_smoke.drawn_share({"tag_calls": 0, "hit": 0}), 0.0)
 
 
 class PresentRingTests(unittest.TestCase):

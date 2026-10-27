@@ -22,9 +22,12 @@ def _toml_value(value):
 
 
 def state_text(values, features=None):
-    """features: [(package_id, feature_id, values), ...]; None = the mouse feature with values."""
+    """features: [(package_id, feature_id, values), ...]; None = the mouse feature with
+    values; [] = no feature, so every package keeps its default."""
     lines = ["format_version = 2"]
-    for package_id, feature_id, vals in features or [(PACKAGE_ID, FEATURE_ID, values)]:
+    if features is None:
+        features = [(PACKAGE_ID, FEATURE_ID, values)]
+    for package_id, feature_id, vals in features:
         lines += ["", "[[feature]]", f'package_id = "{package_id}"', f'id = "{feature_id}"', "enabled = true"]
         if vals:
             lines += ["", "[feature.values]"] + [f"{k} = {_toml_value(v)}" for k, v in vals.items()]

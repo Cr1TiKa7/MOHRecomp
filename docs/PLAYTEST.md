@@ -83,13 +83,14 @@ Im Release-Build (`build-release\MOH_Recompiled.exe`). Die neue Tastenbelegung l
 
 ## M5: Breitbild und Bildqualität (Abnahme)
 
-Im Release-Build (`build-release\MOH_Recompiled.exe`). PGXP ist dort schon an, Breitbild und Auflösung schaltest du selbst ein. Hinter jeden Punkt `ok` oder was dir auffällt.
+Im Release-Build (`build-release\MOH_Recompiled.exe`). Breitbild, Auflösung und PGXP schaltest du selbst im Launcher ein. Hinter jeden Punkt `ok` oder was dir auffällt.
 
 1. **Einschalten:** Launcher → Mods → Visual → „Widescreen 16:9“ an. ______
 2. **Nur im Spiel breit:** Im Level füllt das Bild 16:9. Menüs, Briefing, Ladebild, Pause, Missionsauswertung und Videos bleiben 4:3 mit schwarzen Seitenbalken, nichts ist gestreckt oder halb schwarz. Wo stimmt das nicht? ______
 3. **Ränder beim Drehen:** Schnell drehen, auch in Innenräumen und mit Gegnern am Bildrand, in mehreren Levels. Verschwinden am linken oder rechten Rand Wände, Boden oder Gegner, oder bleibt dort Schwarz stehen? Wo? ______
 4. **HUD:** Der Kompass sitzt links oben am Rand, die Munition rechts oben. Fadenkreuz (rechte Maustaste bzw. R2), Meldungen und Untertitel bleiben in der Mitte. Passt das? ______
 5. **4K:** Launcher → Mods → „Internal Resolution“ auf 4K stellen und ein Level spielen. Läuft es flüssig, ohne Ruckler? ______
-6. **PGXP an und aus:** Launcher → Mods → „PGXP Precision“ einmal aus, einmal an (Voreinstellung). Wackeln Wände und Boden mit PGXP noch sichtbar? Siehst du mit PGXP Risse, Lücken oder flackernde Flächen? ______
+6. **PGXP an und aus:** Launcher → Mods → „PGXP Precision“ einmal an, einmal aus (Voreinstellung). Wackeln Wände und Boden mit PGXP weniger? Siehst du mit PGXP Risse, Lücken oder flackernde Flächen? Zittert der Kompass oben links? Willst du PGXP standardmäßig an haben? ______
 7. **Splitscreen mit Breitbild-Paket:** Multiplayer starten. Er läuft in 4:3, das ist so gewollt. Startet er und lässt er sich spielen? ______
 8. **Zusammen mit der Maus:** Maus-Paket und Breitbild-Paket gleichzeitig an. Funktioniert alles wie gewohnt (Einfangen, Drehen, Zielen)? ______
+9. **Zielfernrohr mit Breitbild:** Sobald du ein Gewehr mit Zielfernrohr hast, einmal hindurchsehen. Ist die Fläche neben dem runden Ausschnitt auch in den breiten Seitenstreifen abgedeckt, oder sieht man dort die Welt ohne Maske? ______

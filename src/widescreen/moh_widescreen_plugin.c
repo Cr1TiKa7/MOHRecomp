@@ -3,7 +3,12 @@
  * 16:9 (the framework renders a wider surface, nothing is squashed) during
  * gameplay only: a frame counts as gameplay when LEVEL.BIN's yaw store or its
  * aim-mode horizontal rate load ran within the last MOH_LOOK_STALE_VBLANKS,
- * the same rule the mouse plugin uses. Emulation thread only. */
+ * the same rule the mouse plugin uses. Hooks and the predicate run on the
+ * emulation thread (the renderer asks the predicate from GP0/present code);
+ * only the debug command runs on the server thread. */
+#include <stdatomic.h>
+#include <stdio.h>
+#include <string.h>
 #include "cpu_state.h"
 #include "gpu.h"   /* gpu_ws_tag_background_prim: runtime-internal, no psx_mod_ wrapper yet */
 #include "mod_plugins.h"
@@ -14,23 +19,37 @@
 
 static uint32_t g_vblanks, g_frame_vblank;
 static int g_frame_seen;
+static int g_in_gameplay;     /* cached: the renderer asks several times per primitive */
+static atomic_int g_sky_off;  /* debug: moh_widescreen "sky off" before a level, for measurements */
 
-static void on_vblank(void) { g_vblanks++; }
+static void update_gameplay(void) {
+    g_in_gameplay = moh_look_eligible(psx_mod_read_word(MOH_OVERLAY_ADDR), 0, g_vblanks,
+                                      g_frame_vblank, g_frame_seen);
+}
 
-/* Either site runs once per game frame, depending on aim mode. */
+static void on_vblank(void) {
+    g_vblanks++;
+    update_gameplay();
+}
+
+/* Either site runs once per game frame, depending on aim mode. Any actor's
+ * yaw store counts: it only runs while a level is simulated. */
 static void on_gameplay_frame(struct CPUState *cpu, uint32_t address) {
     (void)cpu;
     (void)address;
     g_frame_vblank = g_vblanks;
     g_frame_seen = 1;
+    update_gameplay();
 }
 
 /* Without this the framework treats MOH's 3D levels as 2D scenes and stays
  * 4:3; with its GTE detector instead, the 4:3-built menu rooms and the
  * loading poster would go wide as well. */
-static int in_gameplay(void) {
-    return moh_look_eligible(psx_mod_read_word(MOH_OVERLAY_ADDR), 0, g_vblanks,
-                             g_frame_vblank, g_frame_seen);
+static int in_gameplay(void) { return g_in_gameplay; }
+
+static int is_player(uint32_t object) {
+    const uint32_t owner = psx_mod_read_word(MOH_PLAYER_OWNER_PTR_ADDR);
+    return owner && object == psx_mod_read_word(owner + MOH_PLAYER_PTR_OFFSET);
 }
 
 /* psx_mod_anchor_hud_primitive wants the word right before the GP0 command:
@@ -50,9 +69,11 @@ static void on_text_glyph(struct CPUState *cpu, uint32_t address) {
         psx_mod_anchor_hud_primitive(command_anchor(cpu->gpr[MOH_REG_S3]), +1);
 }
 
-/* The ammo icon beside the digits. */
+/* The ammo icon beside the digits: the player's own ($s0), in one of its two
+ * draw buffers ($v1 = player or player + 0x28). */
 static void on_ammo_icon(struct CPUState *cpu, uint32_t address) {
     (void)address;
+    if (!is_player(cpu->gpr[MOH_REG_S0])) return;
     psx_mod_anchor_hud_primitive(command_anchor(cpu->gpr[MOH_REG_V1] + MOH_AMMO_ICON_OFFSET), +1);
 }
 
@@ -61,13 +82,26 @@ static void on_ammo_icon(struct CPUState *cpu, uint32_t address) {
  * is changed; at 4:3 (or outside gameplay) nothing is tagged. */
 static void on_sky_strip(struct CPUState *cpu, uint32_t address) {
     (void)address;
-    if (in_gameplay())
+    if (in_gameplay() && !atomic_load(&g_sky_off))
         gpu_ws_tag_background_prim(cpu->gpr[MOH_REG_S0]);
+}
+
+/* Debug port: {"cmd":"mod_cmd","name":"moh_widescreen","args":"sky off|on"}.
+ * The first sky tag switches the renderer to full wide compositing until the
+ * next GPU reset, so "off" only compares fairly when sent before a level. */
+static int cmd_moh_widescreen(const char *args, char *reply, int cap) {
+    if (!args || (strcmp(args, "sky off") != 0 && strcmp(args, "sky on") != 0)) {
+        snprintf(reply, cap, "usage: sky off|on");
+        return -1;
+    }
+    atomic_store(&g_sky_off, args[5] == 'f');
+    snprintf(reply, cap, "%s", args);
+    return 0;
 }
 
 static void on_activate(void) {
     g_vblanks = g_frame_vblank = 0;
-    g_frame_seen = 0;
+    g_frame_seen = g_in_gameplay = 0;
     psx_mod_set_fixed_display_aspect(16, 9);
     psx_mod_set_native_wide_projection_correction(1);
     psx_mod_set_world_scene_predicate(in_gameplay);
@@ -82,4 +116,5 @@ PSX_MOD_CONSTRUCTOR(moh_widescreen_register) {
     psx_mod_register_instruction_plugin(PLUGIN_ID, MOH_TEXT_GLYPH_PC, MOH_TEXT_GLYPH_WORD, on_text_glyph);
     psx_mod_register_instruction_plugin(PLUGIN_ID, MOH_AMMO_ICON_PC, MOH_AMMO_ICON_WORD, on_ammo_icon);
     psx_mod_register_instruction_plugin(PLUGIN_ID, MOH_SKY_LINK_PC, MOH_SKY_LINK_WORD, on_sky_strip);
+    psx_mod_register_command("moh_widescreen", cmd_moh_widescreen);
 }

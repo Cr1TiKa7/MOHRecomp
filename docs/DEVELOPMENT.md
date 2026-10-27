@@ -56,7 +56,7 @@ pwsh -File tools/run-smoke.ps1 -Build dev -Test mp                 # Splitscreen
 pwsh -File tools/run-smoke.ps1 -Build dev -Test coverage-long      # je 10 min Videos, Menüs, Levels
 pwsh -File tools/run-smoke.ps1 -Build dev -Test mouse             # Maus-Paket (siehe „Maus“)
 pwsh -File tools/run-smoke.ps1 -Build dev -Test widescreen        # Breitbild-Paket (siehe „Breitbild“)
-pwsh -File tools/run-smoke.ps1 -Build dev -Test pgxp              # PGXP-Voreinstellung bei 4K (siehe „PGXP und Auflösung“)
+pwsh -File tools/run-smoke.ps1 -Build dev -Test pgxp              # PGXP-Paket bei 4K (siehe „PGXP und Auflösung“)
 
 # C-Unit-Test der Maus-Rechenlogik (wird mit build-dev gebaut)
 build-dev\moh_mouselook_test.exe
@@ -74,7 +74,7 @@ build-dev\moh_mouselook_test.exe
 | `mp` | Ohne Autocompile: steckt über den Debug-Port einen Controller in Port 2, MULTIPLAYER → START GAME. `LEVEL2P.BIN` liegt an `0x80039F28`, jeder Controller dreht nur seine Bildhälfte (Spieler 1 oben), 60 s beide Spieler aktiv, `/DATA/TWOPLAYR/` gelesen, Interpreter-Anteil < 1 %. | ~4 min |
 | `mouse` | Maus-Paket an (`build-dev\mods\state.toml`, danach wiederhergestellt), drei Starts. M1L1: Gier pro Impuls exakt; im Zielmodus Fadenkreuz Y/X, Kameraneigung und Drehen am Rand exakt; nach dem Loslassen Fadenkreuz 0, Neigung bleibt; senkrechte Bewegung ohne Zielmodus und jede Bewegung in der Pause verfällt; alle Hook-Stellen laufen nativ. Splitscreen: kein Hook greift. Paket aus: keine Wirkung. | ~12 min |
 | `widescreen` | Breitbild-Paket an, fünf Starts. Intro-Film, Menü, Ladeplakat und Pause bleiben 4:3 (`present_ring`), M1L1 und Zielmodus sind breit (682 Pixel statt 512). HUD: Kompass am linken Rand, Munition am rechten, Fadenkreuz mittig (gemessene Verschiebung 0/170/85). Himmel füllt die Seitenstreifen (dunkler Anteil der oberen Hälfte ≤ 0,195 in vier Blickrichtungen). Blicke, in denen vorher am Rand Polygone fehlten (M1L1, M3L1, M7L1): ≤ 5 % dunkel, mit `ws_margin 200` unverändert. Paket aus: 4:3. | ~11 min |
-| `pgxp` | Interne Auflösung 4K, PGXP bleibt auf seiner Voreinstellung (an). M1L1: `video_info` meldet Faktor 9 ohne Begrenzung, in 2 s Drehen und 2 s Laufen hat ein Anteil ≥ `PGXP_MIN_CORRECTED` (0,526) der Dreiecke PGXP-Präzision (`geom_correction`). | ~5 min |
+| `pgxp` | PGXP-Paket an, interne Auflösung 4K. M1L1: `video_info` meldet Faktor 9 ohne Begrenzung, in 2 s Drehen und 2 s Laufen hat ein Anteil ≥ `PGXP_MIN_CORRECTED` (0,198) der Dreiecke ganz oder teilweise PGXP-Präzision (`geom_correction`). | ~5 min |
 | `coverage-long` | Ohne Autocompile je 10 min Videos (Boot ohne Turbo, dann der ~108-s-Film unter BRIEFING in Schleife; jeder Durchlauf muss MDEC-Daten liefern und ins Menü zurückkehren), Menüs (Ring, OPTIONS, WAR RECORDS, GALLERY) und Levels (M1L1, M3L1, M7L1). Jede Phase zählt nur ihre eigenen Fenster und muss < 1 % interpretiert bleiben. Einträge an den Kernel-Patch-Slots des BIOS stehen als `slot=` daneben und zählen nicht mit (siehe „Overlays vorab nativ“). | ~45 min |
 
 **Fixture:** Die Karte stammt aus einem echten Durchlauf von Mission 1, Level 1 im Release-Build, gespeichert am 2026-10-26 als `BESLES-02470PASCAL0`. Sie liegt nur lokal und kommt nie ins Repo. Neu erzeugen: Level durchspielen, speichern, `saves\card1.mcd` dorthin kopieren.
@@ -224,11 +224,13 @@ Das Mod-Paket liegt unter `mods/preloaded/packages/moh.enhancement.widescreen/` 
   - Das Framework schaltet eine Szene ohne Weltgeometrie nie breit (2D-Veto). Das Plugin meldet deshalb per `psx_mod_set_world_scene_predicate`, wann gespielt wird.
   - Es gilt dasselbe Kriterium wie bei der Maus: `LEVEL.BIN` geladen, und der Gier-Store `0x800801E0` oder das Laden der Zielrate X `0x8007FC94` lief in den letzten 12 VBlanks. Die zweite Stelle hält den Zielmodus breit.
   - `game.toml [video] aspect_ratio` bleibt `"4:3"`. Das Seitenverhältnis setzt das Plugin bei Aktivierung (`psx_mod_set_fixed_display_aspect(16, 9)`).
-- **Ausblenden am Rand:** Zwei Tests verwerfen Polygone außerhalb des 4:3-Bildes:
-  - der Dreieckstest der Boot-EXE `0x80011214` (Breite 540 aus `0x8009CE10`)
+- **Ausblenden am Rand:** Vier Tests verwerfen, was außerhalb des 4:3-Bildes liegt (Breite 540 aus `0x8009CE10`):
+  - der Dreieckstest der Boot-EXE `0x80011214`
   - der Bounding-Box-Test der Levelknoten in `LEVEL.BIN` `0x8008B9C8`
+  - der Würfeltest für Figuren und Requisiten in `LEVEL.BIN` `0x8008EB90` (Soldaten, gerufen über `0x8008EFBC`)
+  - der Test für Einschusslöcher in `LEVEL.BIN` `0x8008C6A8` (Ring aus 100 Vierecken ab `0x80094244`)
 
-  Beide werden über `[widescreen.cull]` in `game.toml` verbreitert, nur bei 16:9. Die Stellen in `0x8008A338` nicht eintragen: Sie wären in `LEVEL2P.BIN` falsch.
+  Alle werden über `[widescreen.cull]` in `game.toml` verbreitert, solange das Paket an ist, auch auf seinen 4:3-Bildschirmen (dort schneidet der Zeichenbereich ab). Ohne Paket bleiben sie unverändert. Die Stellen in `0x8008A338` nicht eintragen: Sie wären in `LEVEL2P.BIN` falsch.
 - **HUD:**
   - Der Kompass besteht aus festen Paketen (`0xABF60`–`0xAD7B8`). Er wandert über `nw_left_hud_packet_lo/hi` an den linken Rand.
   - Die Munitionsanzeige liegt im selben Paketbereich wie die Welt. Das Plugin markiert sie deshalb einzeln mit `psx_mod_anchor_hud_primitive` für den rechten Rand:
@@ -247,24 +249,26 @@ Das Mod-Paket liegt unter `mods/preloaded/packages/moh.enhancement.widescreen/` 
 
 ## PGXP und Auflösung (M5)
 
-- **PGXP ist standardmäßig an.**
-  - `mods/preloaded/packages/psx.enhancement.pgxp/1.0.0/` ist eine Kopie des eingebauten Pakets mit gleicher ID und Version und ersetzt es.
-  - Geändert sind nur `default_enabled = true` und die Beschreibung.
-  - Ändert ein Framework-Update das eingebaute Manifest, die Kopie neu ableiten.
-- **`[video] pgxp_tolerance = -1.0`** in `game.toml`: ohne Begrenzung der Sub-Pixel-Korrektur.
-- **Gemessener Anteil der Dreiecke mit PGXP-Präzision** in M1L1 (2 s Drehen, 2 s Laufen):
+- **PGXP bleibt Wahl des Spielers** (Launcher → Mods → Visual → PGXP Precision, standardmäßig aus). `game.toml` setzt dazu nichts, es gelten die Framework-Werte für Runtimes ohne PGXP-Variante: Toleranz 0,5, Positions-Cache an.
+- **Gemessener Anteil der Dreiecke, die ganz oder teilweise PGXP-Präzision haben,** in M1L1 (2 s Drehen, 2 s Laufen):
 
   | Variante | Anteil |
   |---|---|
-  | Voreinstellung | 0,248 |
+  | Framework-Werte (Toleranz 0,5) | 0,248 |
   | Toleranz −1 | 0,576 |
+  | Toleranz −1 ohne Positions-Cache (`pgxp_position_fallback = false`) | 0,008 |
   | `cpu_mode` | 0,254 |
   | eigene PGXP-Runtime (`-DPSX_PGXP_VARIANT=ON`) | 0,755 |
 
-  Hochauflösende Aufnahmen in M1L1, M3L1 und M7L1 zeigen mit Toleranz −1 keine Risse oder fehlenden Flächen.
-- **Keine eigene PGXP-Runtime:** Sie kostet schon mit PGXP aus rund 16 % Durchsatz. Mit PGXP an lag sie unter Turbo bei 48 Bildern/s, das Spiel braucht 50.
+- **Warum nicht standardmäßig an:**
+  - Auf dieser Runtime stammt fast jede Korrektur aus dem Positions-Cache. Der Cache gibt auch 2D-Polygonen, die die CPU baut, Sub-Pixel-Anteile fremder 3D-Ecken.
+  - In M7L1 bekamen so alle Ecken des Kompasses wechselnde Bruchteile, schon im Stillstand (`pgxp_tri_ring`, Pakete `0xABF60`–`0xAD7B8`). Der Kompass zittert dann um bis zu einen PS1-Pixel, mit Toleranz 0,5 um bis zu einen halben.
+  - `docs/ENHANCEMENTS.md` des Frameworks beschreibt denselben Effekt an einem anderen Spiel.
+- **Keine eigene PGXP-Runtime:** Sie korrigiert ohne Cache und damit ohne HUD-Zittern. Sie kostet aber schon mit PGXP aus rund 16 % Durchsatz, und mit PGXP an lag sie unter Turbo bei 48 Bildern/s. Das Spiel braucht 50.
 - **Auflösung:** Die interne Auflösung bleibt Wahl des Spielers (Launcher → Mods → Internal Resolution, bis 4K). Bei 4K meldet `video_info` `effective_scale` 9.
-- **Debug:** `geom_correction` zählt `tri_precise`, `tri_mixed` und `tri_native`.
+- **Debug:**
+  - `geom_correction` zählt `tri_precise`, `tri_mixed` und `tri_native`.
+  - `pgxp_tri_ring` listet die korrigierten Dreiecke mit Paketadresse und Quelle jeder Ecke (0 nativ, 1 Cache, 2 Datenfluss).
 
 ## Debug-Port
 

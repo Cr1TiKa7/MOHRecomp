@@ -177,11 +177,13 @@ Umgesetzt in M5, Plan `docs/superpowers/plans/2026-10-27-moh-m5-widescreen.md`. 
   Menüs, Briefing, Ladebild, Pause und Videos bleiben 4:3 mit Pillarbox, der Splitscreen (`LEVEL2P.BIN`) ebenfalls.
 - **Himmel:** Er besteht aus acht Farbverlaufsstreifen genau über 4:3. Das Plugin markiert sie als Hintergrund, damit sie die Seitenstreifen füllen. Dafür nutzt es die runtime-interne Funktion `gpu_ws_tag_background_prim`, denn eine `psx_mod_`-Variante gibt es nicht.
 
-**Ausblenden am Rand (Culling):** zwei Bildschirm-Tests, gefunden durch Laufzeitbeobachtung und Disassembly:
+**Ausblenden am Rand (Culling):** vier Bildschirm-Tests, gefunden durch Laufzeitbeobachtung und Disassembly:
 - der Dreieckstest der Boot-EXE (`0x80011214`, Breite 540)
 - der Bounding-Box-Test der Levelknoten in `LEVEL.BIN` (`0x8008B9C8`)
+- der Würfeltest für Figuren und Requisiten in `LEVEL.BIN` (`0x8008EB90`), nach dem Abschluss-Review gefunden
+- der Test für Einschusslöcher in `LEVEL.BIN` (`0x8008C6A8`), nach dem Abschluss-Review gefunden
 
-Beide stehen als `[widescreen.cull]`-Einträge (`bltz_sites`, `screen_x_sites`, `clip_edge_x_load_sites`) in `game.toml` und wirken nur bei 16:9. Einen Test in Weltkoordinaten vor der Projektion gab es nicht, ein eigener Patch war nicht nötig.
+Alle stehen als `[widescreen.cull]`-Einträge (`bltz_sites`, `bgez_sites`, `screen_x_sites`, `clip_edge_x_load_sites`) in `game.toml` und wirken nur bei eingeschaltetem Paket. Einen Test in Weltkoordinaten vor der Projektion gab es nicht, ein eigener Patch war nicht nötig.
 
 **HUD** (Abweichung 1): `auto_ui_anchor = "edges"` wirkt nur im Stauch-Modus, in Native-Wide ist es aus. Stattdessen:
 - Der Kompass (feste Pakete) wandert über `nw_left_hud_packet_lo/hi` an den linken Rand.
@@ -191,10 +193,9 @@ Beide stehen als `[widescreen.cull]`-Einträge (`bltz_sites`, `screen_x_sites`, 
 **Videos:** werden automatisch als 4:3 mit Pillarbox gezeigt.
 
 **Auflösung und PGXP** (Abweichung 3):
-- Die interne Auflösung bleibt Wahl des Spielers über das eingebaute Paket `psx.enhancement.internal-resolution`, bis 4K.
-- PGXP ist standardmäßig an. Dafür liegt eine Kopie des eingebauten Pakets `psx.enhancement.pgxp` (gleiche ID und Version, nur `default_enabled = true`) unter `mods/preloaded/packages/`.
-- `game.toml` setzt `[video] pgxp_tolerance = -1.0`. In M1L1 haben damit 58 % der Dreiecke PGXP-Präzision statt 25 %, ohne sichtbare Risse.
-- Die eigene PGXP-Runtime-Variante (76 %) kostet rund 16 % Durchsatz und fällt mit PGXP unter 50 Bilder/s. Sie ist deshalb nicht im Einsatz.
+- Interne Auflösung (bis 4K) und PGXP bleiben Wahl des Spielers über die eingebauten Pakete `psx.enhancement.internal-resolution` und `psx.enhancement.pgxp`. Beide sind standardmäßig aus.
+- PGXP ist nicht standardmäßig an. Auf dieser Runtime stammt fast jede Korrektur aus dem Positions-Cache des Frameworks, und der lässt auch den Kompass zittern (gemessen in M7L1).
+- Die eigene PGXP-Runtime-Variante korrigiert ohne Cache (76 % der Dreiecke). Sie kostet aber rund 16 % Durchsatz und fällt mit PGXP unter 50 Bilder/s, deshalb ist sie nicht im Einsatz.
 
 ### 6.4 Höhere Bildrate (M6)
 
@@ -240,7 +241,7 @@ Beide stehen als `[widescreen.cull]`-Einträge (`bltz_sites`, `screen_x_sites`, 
 | Frame-Gen verwirft schnelle Drehungen | Ruckeln beim Umsehen | Stufe 2 (Render Passes) einplanen |
 | ~~Native-Wide unter OpenGL unklar~~ | Nur Stauchungs-Widescreen | Erledigt in M5: Native-Wide läuft unter OpenGL, nur im Spiel; Rand-Culling über `[widescreen.cull]` |
 | Breitbild-Himmel nutzt eine runtime-interne Funktion (`gpu_ws_tag_background_prim`) | Ein Framework-Update kann sie umbenennen, der Build bricht dann sichtbar | Bei Framework-Updates prüfen, sonst Upstream um eine `psx_mod_`-Variante bitten |
-| PGXP-Override ist eine Kopie des eingebauten Manifests | Ein Framework-Update am eingebauten Paket kommt bei uns nicht an | Bei Framework-Updates die Kopie neu ableiten |
+| PGXP auf der normalen Runtime fast nur über den Positions-Cache | Wenig Wirkung, HUD-Polygone zittern leicht | PGXP bleibt Spieler-Wahl, standardmäßig aus; die PGXP-Runtime-Variante erst, wenn M6 Leistungsreserve schafft |
 | Overlay-Kompilierung braucht evtl. `gcc` | Extra-Installation | MSYS2 auf D:, erst bei Bedarf |
 | Spielgefühl kann ich nicht beurteilen | Abnahme hängt an dir | Klare Abnahmepunkte in M3/M4/M6 |
 

@@ -48,11 +48,6 @@ overlay_cache = true
 [video]
 renderer = "opengl"
 aspect_ratio = "4:3"
-# PGXP is on by default (mods/preloaded/packages/psx.enhancement.pgxp). No
-# sub-pixel clamp: in M1L1 it more than doubles the triangles drawn with PGXP
-# precision on this runtime (0.576 vs 0.248 at 0.5), and hi-res shots of
-# M1L1/M3L1/M7L1 show no cracks (M5 Task 5).
-pgxp_tolerance = -1.0
 
 [controller]
 default_mode = "digital"
@@ -75,13 +70,22 @@ nw_left_hud_packet_hi = "0x000AD7B8"
 
 # Polygon rejection at the screen edges (M5 Task 3, found 2026-10-27): the boot
 # EXE's triangle outcode test 0x80011214 (width 540 from 0x8009CE10) and
-# LEVEL.BIN's node bounding-box test 0x8008B9C8. Widened only while 16:9 is
-# active; identity at 4:3.
+# LEVEL.BIN's node bounding-box test 0x8008B9C8; after the final review also
+# LEVEL.BIN's actor/prop cube test 0x8008EB90 (soldiers) and its bullet-hole
+# quad test 0x8008C6A8. The LEVEL2P.BIN and SHELL.BIN words at these addresses
+# are other instructions, so the overlay variants keep vanilla code. Widened
+# whenever the widescreen package is on (also on its 4:3 screens, where the
+# draw area clips anyway); identity without it.
 [widescreen.cull]
 bltz_sites = [
     "0x8008BE14", "0x8008C330",                 # LEVEL.BIN node bbox, left reject
+    "0x8008ED90",                               # LEVEL.BIN actor/prop cube, left reject
     "0x800113B0", "0x80011400", "0x80011440",   # EXE triangle outcode, left bits
 ]
+bgez_sites = ["0x8008C944", "0x8008C984", "0x8008C9C0"]   # LEVEL.BIN bullet holes, left bit per vertex
 screen_x_sites = ["0x800113B8", "0x80011408", "0x80011448"]   # sltu t8, SX, W
-clip_edge_x_load_sites = ["0x8008B9F0", "0x80011394"]         # loads of W = 540
+clip_edge_x_load_sites = [                                    # loads of W = 540
+    "0x8008B9F0", "0x80011394",                 # node bbox, EXE triangles
+    "0x8008EE28", "0x8008C93C",                 # actor/prop cube, bullet holes
+]
 clip_edge_width = 540

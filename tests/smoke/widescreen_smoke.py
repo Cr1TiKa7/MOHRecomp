@@ -45,14 +45,17 @@ def band_diff(png_a, png_b, nw_extra):
 
 
 def find_patch_x(wide_png, narrow_png, box, search):
-    """x shift of the narrow picture's box (x0, y0, x1, y1) inside the wide picture:
-    the offset in range(search[0], search[1] + 1) with the smallest mean absolute difference."""
+    """(dx, cost): the x shift of the narrow picture's box (x0, y0, x1, y1) inside the wide
+    picture, the offset in range(search[0], search[1] + 1) with the smallest difference, and
+    that difference as the mean absolute difference per colour channel (0..255)."""
     _wn, _hn, bpp_n, rows_n = pngcheck.read_pixels(narrow_png)
     ww, _hw, bpp_w, rows_w = pngcheck.read_pixels(wide_png)
     x0, y0, x1, y1 = box
     patch = [rows_n[y][x0 * bpp_n:x1 * bpp_n] for y in range(y0, y1)]
     best, best_dx = None, None
     for dx in range(search[0], search[1] + 1):
+        if x0 + dx < 0:
+            continue
         if (x1 + dx) > ww:
             break
         cost = 0
@@ -65,7 +68,13 @@ def find_patch_x(wide_png, narrow_png, box, search):
                             for i in range(x1 - x0) for c in range(3))
         if best is None or cost < best:
             best, best_dx = cost, dx
-    return best_dx
+    return best_dx, best / ((x1 - x0) * (y1 - y0) * 3)
+
+
+def drawn_share(stats):
+    """Draws that found their tag fresh, per tag call (ws_tag_stats hud/background).
+    "stale" is no measure: it also counts later packets reusing an expired address."""
+    return stats["hit"] / stats["tag_calls"] if stats["tag_calls"] else 0.0
 
 
 def present_entry(event):
@@ -149,12 +158,13 @@ def check_on(proc, port, out_dir, deadline):
     if abs(crosshair - moh.WS_NW_EXTRA // 2) > HUD_TOLERANCE:
         raise SmokeFailure(f"crosshair shifted by {crosshair}, expected {moh.WS_NW_EXTRA // 2} (centred)")
     sky = check_sky(port, out_dir)
+    tags = check_tags(port, "M1L1")
     psxrun.press(port, "start")
     expect_path(port, out_dir, "pause", moh.WS_PAUSE_PATH == "wide")
     psxrun.press(port, "start")
     expect_path(port, out_dir, "resumed", True)
     return (f"level wide={width}x{state['nw_extra']} pause={moh.WS_PAUSE_PATH} hud={hud} "
-            f"crosshair={crosshair} sky={sky}")
+            f"crosshair={crosshair} sky={sky} drawn={tags}")
 
 
 def check_sky(port, out_dir):
@@ -173,14 +183,33 @@ def check_sky(port, out_dir):
 
 
 def hud_shift(port, out_dir, name, box):
-    """Shift of a HUD box between a 4:3 and a 16:9 shot of the same moment."""
+    """Shift of a HUD box between a 4:3 and a 16:9 shot of the same moment; the box
+    must be found (a missing element would still report some shift)."""
     wide = flows.shot(port, out_dir, f"{name}_169.png")
     psxdbg.send("display_aspect", port=port, num=4, den=3)
     time.sleep(SETTLE_SECS)
     narrow = flows.shot(port, out_dir, f"{name}_43.png")
     psxdbg.send("display_aspect", port=port, num=16, den=9)
     time.sleep(SETTLE_SECS)
-    return find_patch_x(wide, narrow, box, (0, moh.WS_NW_EXTRA))
+    shift, cost = find_patch_x(wide, narrow, box, moh.WS_HUD_SEARCH)
+    if cost > moh.WS_HUD_MAX_COST:
+        raise SmokeFailure(f"{name}: no match in the 16:9 shot (best shift {shift}, "
+                           f"cost {cost:.1f} > {moh.WS_HUD_MAX_COST})")
+    return shift
+
+
+def check_tags(port, label):
+    """The HUD and sky tags are drawn while still fresh (they expire 2 vblanks after
+    the hook; MOH builds a frame every 2)."""
+    stats = psxdbg.send("ws_tag_stats", port=port, timeout=10.0)
+    shares = []
+    for kind in ("hud", "background"):
+        share = drawn_share(stats[kind])
+        if share < moh.WS_TAG_MIN_DRAWN:
+            raise SmokeFailure(f"{label}: only {share:.3f} of the {kind} tags were drawn while "
+                               f"fresh (< {moh.WS_TAG_MIN_DRAWN}): {stats[kind]}")
+        shares.append(f"{share:.3f}")
+    return "/".join(shares)
 
 
 def check_hud(port, out_dir):
@@ -229,7 +258,8 @@ def edge_check(mission, level, yaw, side):
         if diff > moh.WS_MARGIN_MAX_DIFF:
             raise SmokeFailure(f"M{mission}L{level} yaw {yaw}: a wider cull margin changes the bands "
                                f"by {diff:.2f}: something is still culled")
-        return f"M{mission}L{level}={dark:.3f}/{diff:.2f}"
+        tags = check_tags(port, f"M{mission}L{level}")
+        return f"M{mission}L{level}={dark:.3f}/{diff:.2f}/{tags}"
     return check
 
 
@@ -246,8 +276,8 @@ def run(args, label, check, package):
     out_dir = os.path.join(args.out_root, label)
     os.makedirs(out_dir, exist_ok=True)
     build_dir = os.path.dirname(os.path.abspath(args.exe))
-    ctx = modstate.enabled(build_dir, None, features=[PACKAGE]) if package else _Nothing()
-    with ctx:
+    # Off means an explicit selection without it, whatever the player chose.
+    with modstate.enabled(build_dir, None, features=[PACKAGE] if package else []):
         proc = psxrun.launch(args.exe, args.cue, args.game, args.port, out_dir)
         try:
             return check(proc, args.port, out_dir, time.monotonic() + LEVEL_SECS)
@@ -257,14 +287,6 @@ def run(args, label, check, package):
             except ConnectionError:
                 pass
             psxrun.shutdown(proc, args.port)
-
-
-class _Nothing:
-    def __enter__(self):
-        return None
-
-    def __exit__(self, *exc):
-        return False
 
 
 def main(argv=None):

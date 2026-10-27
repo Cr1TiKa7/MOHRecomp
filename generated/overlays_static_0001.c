@@ -937330,8 +937330,7 @@ block_8008C924:
 #ifdef PSX_COSIM
     cosim_instr(0x8008C938u);
 #endif
-    { uint32_t _pgxa = cpu->gpr[17] + 36; cpu->gpr[6] = psx_cyc_load_word(cpu, cpu->gpr[17] + 36, 6, 0x20000u);
-    PGXP_LOAD(0x8E260024u, _pgxa, cpu->gpr[6]); }  /* 0x8008C93C: 0x8E260024 */
+cpu->gpr[6] = psx_ws_clip_edge_x(psx_cyc_load_word(cpu, cpu->gpr[17] + 36, 6, 0x20000u), 540u);  /* ws cull clip edge x load */  /* 0x8008C93C: 0x8E260024 */
 #ifdef PSX_COSIM
     cosim_instr(0x8008C93Cu);
 #endif
@@ -937346,7 +937345,7 @@ block_8008C924:
     #ifdef PSX_ENABLE_BLOCK_CYCLES
     psx_cyc_step(cpu, 0x4u);
 #endif
-    int _bc_8008C944 = ((int32_t)cpu->gpr[2] >= 0);  /* save branch cond before delay slot */
+    int _bc_8008C944 = (psx_ws_cull_bgez(cpu->gpr[2]) /* ws cull (left keep) */);  /* save branch cond before delay slot */
     /* delay slot (always executes) */
 #ifdef PSX_ENABLE_BLOCK_CYCLES
     psx_cyc_step(cpu, 0x20020u);
@@ -937635,7 +937634,7 @@ block_8008C984:
 #ifdef PSX_ENABLE_BLOCK_CYCLES
     psx_cyc_step(cpu, 0x10u);
 #endif
-    int _bc_8008C984 = ((int32_t)cpu->gpr[4] >= 0);  /* save branch cond before delay slot */
+    int _bc_8008C984 = (psx_ws_cull_bgez(cpu->gpr[4]) /* ws cull (left keep) */);  /* save branch cond before delay slot */
     /* delay slot (always executes) */
 #ifdef PSX_ENABLE_BLOCK_CYCLES
     psx_cyc_step(cpu, 0x54u);
@@ -937919,7 +937918,7 @@ block_8008C9C0:
 #ifdef PSX_ENABLE_BLOCK_CYCLES
     psx_cyc_step(cpu, 0x200u);
 #endif
-    int _bc_8008C9C0 = ((int32_t)cpu->gpr[9] >= 0);  /* save branch cond before delay slot */
+    int _bc_8008C9C0 = (psx_ws_cull_bgez(cpu->gpr[9]) /* ws cull (left keep) */);  /* save branch cond before delay slot */
     /* delay slot (always executes) */
 #ifdef PSX_ENABLE_BLOCK_CYCLES
     psx_cyc_step(cpu, 0x244u);
@@ -962075,7 +962074,7 @@ block_8008ED80:
 #ifdef PSX_ENABLE_BLOCK_CYCLES
     psx_cyc_step(cpu, 0x4u);
 #endif
-    int _bc_8008ED90 = ((int32_t)cpu->gpr[2] < 0);  /* save branch cond before delay slot */
+    int _bc_8008ED90 = (psx_ws_cull_bltz(cpu->gpr[2]) /* ws cull (left edge) */);  /* save branch cond before delay slot */
     /* delay slot (always executes) */
 #ifdef PSX_ENABLE_BLOCK_CYCLES
     psx_cyc_step(cpu, 0x105u);
@@ -962550,8 +962549,7 @@ block_8008EE18:
 #ifdef PSX_COSIM
     cosim_instr(0x8008EE24u);
 #endif
-    { uint32_t _pgxa = cpu->gpr[2] + -12784; cpu->gpr[2] = psx_cyc_load_word(cpu, cpu->gpr[2] + -12784, 2, 0x4u);
-    PGXP_LOAD(0x8C42CE10u, _pgxa, cpu->gpr[2]); }  /* 0x8008EE28: 0x8C42CE10 */
+cpu->gpr[2] = psx_ws_clip_edge_x(psx_cyc_load_word(cpu, cpu->gpr[2] + -12784, 2, 0x4u), 540u);  /* ws cull clip edge x load */  /* 0x8008EE28: 0x8C42CE10 */
 #ifdef PSX_COSIM
     cosim_instr(0x8008EE28u);
 #endif

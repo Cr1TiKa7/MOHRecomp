@@ -179,6 +179,16 @@ WS_PAUSE_PATH = "native43"   # filled in from the first run (Task 1 step 5)
 WS_HUD_COMPASS_BOX = (20, 15, 100, 57)
 WS_HUD_AMMO_BOX = (390, 6, 490, 20)
 WS_CROSSHAIR_BOX = (236, 128, 272, 152)
+# The box is searched from -20 to 250 px; a match costs at most this mean
+# difference per channel (found boxes 2.8-5.5, the next-best place 16.9-34.4
+# in the 2026-10-27 runs).
+WS_HUD_SEARCH = (-20, 250)
+WS_HUD_MAX_COST = 12.0
+# ws_tag_stats: HUD and sky tags expire 2 vblanks after the hook; draws that
+# found their tag fresh, per tag call (review item 4). Measured 1.03-1.99 for
+# both in M1L1/M3L1/M7L1 (above 1: a tagged packet is looked up per pass);
+# expired tags would push it toward 0.
+WS_TAG_MIN_DRAWN = 0.9
 # Edge culling (M5 Task 3): views where 4:3 culling dropped big polygons in the
 # wide bands (dark share before the fix .827 / .216 / .115). The yaw is the
 # absolute 12-bit angle; the level is entered from its start position.
@@ -191,7 +201,8 @@ WS_MARGIN_MAX_DIFF = 2.0
 # Upper-half dark share per band: 4:3 edges at most .145, so .195 allows .05.
 WS_SKY_BASE_YAW = 1251    # M1L1 start direction
 WS_SKY_MAX_DARK = 0.195
-# PGXP (M5 Task 5): share of triangles drawn with PGXP precision over 2 s of
-# turning and 2 s of walking in M1L1, with this (non-PGXP-variant) runtime and
-# [video] pgxp_tolerance = -1: 0.576 measured; the check allows 5 points less.
-PGXP_MIN_CORRECTED = 0.526
+# PGXP (M5 Task 5): share of triangles drawn with PGXP precision (fully or
+# partly) over 2 s of turning and 2 s of walking in M1L1, with this
+# (non-PGXP-variant) runtime at the framework's default tolerance 0.5: 0.248
+# measured; the check allows 5 points less.
+PGXP_MIN_CORRECTED = 0.198

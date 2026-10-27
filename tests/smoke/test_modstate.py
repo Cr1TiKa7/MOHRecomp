@@ -43,6 +43,12 @@ class EnabledTests(unittest.TestCase):
                                ("psx.enhancement.internal-resolution", "internal-resolution", True,
                                 {"resolution": "4k"})])
 
+    def test_an_empty_list_selects_no_feature(self):
+        with modstate.enabled(self.build, None, features=[]):
+            with open(self.state, "rb") as f:
+                state = tomllib.load(f)
+        self.assertEqual(state, {"format_version": 2})
+
     def test_restores_an_existing_file_byte_for_byte(self):
         original = b"format_version = 2\r\n# player's own choice\n"
         with open(self.state, "wb") as f:

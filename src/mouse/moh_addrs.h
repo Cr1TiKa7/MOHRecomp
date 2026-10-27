@@ -37,8 +37,9 @@
 /* HUD packets (M5). The ammo digits are rect glyphs from the text routine
  * 0x8005FA50; at SW $v0, 0($s3) the glyph packet is complete, $s3 is its
  * P_TAG and $s2 its text-queue entry (+4 x, +6 y, halfwords, 512-wide
- * screen). The ammo icon is a poly at player + 0xB8, tagged at SW $a0,
- * 184($v1). The compass lives in a fixed packet range (game.toml
+ * screen). The ammo icon is a poly at 0xB8 into one of the player's two
+ * draw buffers ($v1 = player or player + 0x28, $s0 = player), linked at
+ * SW $a0, 184($v1). The compass lives in a fixed packet range (game.toml
  * [widescreen] nw_left_hud_packet_lo/hi). */
 #define MOH_TEXT_GLYPH_PC         0x8005FC1Cu
 #define MOH_TEXT_GLYPH_WORD       0xAE620000u

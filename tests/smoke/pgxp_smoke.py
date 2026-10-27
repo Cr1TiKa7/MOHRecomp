@@ -48,8 +48,9 @@ import psxrun  # noqa: E402
 
 SmokeFailure = psxrun.SmokeFailure
 REPO_ROOT = os.path.normpath(os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", ".."))
-# PGXP is left to its default (the title ships it on); only the resolution is chosen.
-FEATURES = [("psx.enhancement.internal-resolution", "internal-resolution", {"resolution": "4k"})]
+# PGXP is the player's choice (off by default), so the test switches it on.
+FEATURES = [("psx.enhancement.pgxp", "pgxp", {}),
+            ("psx.enhancement.internal-resolution", "internal-resolution", {"resolution": "4k"})]
 MOVE_SECS = 2.0
 
 
