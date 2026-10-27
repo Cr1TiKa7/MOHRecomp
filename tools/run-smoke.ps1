@@ -1,5 +1,5 @@
 # Run smoke tests against a local build.
-# Usage:  pwsh -File tools/run-smoke.ps1 [-Build dev|release] [-Test boot|intro|menu|coverage|level|save|sweep|coverage-long|mp|mouse|widescreen|all] [-Port 4370]
+# Usage:  pwsh -File tools/run-smoke.ps1 [-Build dev|release] [-Test boot|intro|menu|coverage|level|save|sweep|coverage-long|mp|mouse|widescreen|pgxp|all] [-Port 4370]
 # 'all' runs boot, intro, menu, coverage and level in that order and stops at the first failure.
 # 'save' needs the local fixture card (a save made after Mission 1 Level 1); it is
 # skipped with a hint when the fixture is missing and is not part of 'all'.
@@ -11,9 +11,10 @@
 # yaw, aim-mode pitch, pause, split screen and package off in three boots (~12 min); not part of 'all'.
 # 'widescreen' switches the widescreen package on and checks 16:9 only in gameplay (film, menu,
 # poster and pause stay 4:3), HUD anchors, edge culling in M1L1/M3L1/M7L1 and package off, in five boots (~20 min); not part of 'all'.
+# 'pgxp' runs M1L1 at 4K with PGXP left at its default and checks the corrected-triangle share (~5 min); not part of 'all'.
 param(
     [ValidateSet('dev', 'release')][string]$Build = 'dev',
-    [ValidateSet('boot', 'intro', 'menu', 'coverage', 'level', 'save', 'sweep', 'coverage-long', 'mp', 'mouse', 'widescreen', 'all')][string]$Test = 'boot',
+    [ValidateSet('boot', 'intro', 'menu', 'coverage', 'level', 'save', 'sweep', 'coverage-long', 'mp', 'mouse', 'widescreen', 'pgxp', 'all')][string]$Test = 'boot',
     [int]$Port = 4370,
     [int]$Mission = 0,
     [switch]$Bonus

@@ -191,3 +191,7 @@ WS_MARGIN_MAX_DIFF = 2.0
 # Upper-half dark share per band: 4:3 edges at most .145, so .195 allows .05.
 WS_SKY_BASE_YAW = 1251    # M1L1 start direction
 WS_SKY_MAX_DARK = 0.195
+# PGXP (M5 Task 5): share of triangles drawn with PGXP precision over 2 s of
+# turning and 2 s of walking in M1L1, with this (non-PGXP-variant) runtime and
+# [video] pgxp_tolerance = -1: 0.576 measured; the check allows 5 points less.
+PGXP_MIN_CORRECTED = 0.526
