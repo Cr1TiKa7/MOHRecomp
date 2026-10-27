@@ -33,9 +33,50 @@ class BandTests(unittest.TestCase):
         path = self.png("lit.png", 20, 4, lambda x: WHITE)
         self.assertEqual(widescreen_smoke.band_dark_fraction(path, 6), (0.0, 0.0))
 
+    def test_dark_fraction_over_a_row_range(self):
+        # Top two rows black in the left band, bottom two lit: the upper half is all dark.
+        path = os.path.join(self.tmp.name, "half.png")
+        _write_png(path, 20, 4, [BLACK if (x < 3 and y < 2) or 3 <= x < 17 else WHITE
+                                 for y in range(4) for x in range(20)])
+        self.assertEqual(widescreen_smoke.band_dark_fraction(path, 6, rows=(0, 2)), (1.0, 0.0))
+        self.assertEqual(widescreen_smoke.band_dark_fraction(path, 6), (0.5, 0.0))
+
+    def test_band_diff_compares_only_the_outer_bands(self):
+        a = self.png("a.png", 20, 4, lambda x: BLACK)
+        b = self.png("b.png", 20, 4, lambda x: WHITE if 3 <= x < 17 else BLACK)   # centre differs
+        c = self.png("c.png", 20, 4, lambda x: WHITE if x < 3 else BLACK)          # left band differs
+        self.assertEqual(widescreen_smoke.band_diff(a, b, 6), 0.0)
+        self.assertEqual(widescreen_smoke.band_diff(a, c, 6), 127.5)
+
     def test_dark_means_every_channel_below_8(self):
         path = self.png("dim.png", 20, 4, lambda x: DIM if x < 3 else (8, 0, 0) if x >= 17 else WHITE)
         self.assertEqual(widescreen_smoke.band_dark_fraction(path, 6), (1.0, 0.0))
+
+
+class FindPatchTests(unittest.TestCase):
+    def setUp(self):
+        self.tmp = tempfile.TemporaryDirectory()
+
+    def tearDown(self):
+        self.tmp.cleanup()
+
+    def png(self, name, w, mark_x):
+        """Grey picture with a 6x4 mark (white/black checks) at mark_x."""
+        def colour(x, y):
+            if mark_x <= x < mark_x + 6 and 1 <= y < 5:
+                return WHITE if (x + y) % 2 else BLACK
+            return (90, 90, 90)
+        path = os.path.join(self.tmp.name, name)
+        _write_png(path, w, 6, [colour(x, y) for y in range(6) for x in range(w)])
+        return path
+
+    def test_finds_the_shift_of_a_mark(self):
+        narrow, wide = self.png("n.png", 40, 10), self.png("w.png", 60, 30)
+        self.assertEqual(widescreen_smoke.find_patch_x(wide, narrow, (10, 1, 16, 5), (0, 20)), 20)
+
+    def test_unmoved_mark(self):
+        narrow, wide = self.png("n.png", 40, 10), self.png("w.png", 60, 10)
+        self.assertEqual(widescreen_smoke.find_patch_x(wide, narrow, (10, 1, 16, 5), (0, 20)), 0)
 
 
 class PresentRingTests(unittest.TestCase):

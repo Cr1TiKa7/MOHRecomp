@@ -13,19 +13,59 @@ import pngcheck  # noqa: E402
 DARK_BELOW = 8   # a pixel is dark when every channel is below this
 
 
-def band_dark_fraction(png_path, nw_extra):
-    """Share of dark pixels in the left and right outer bands (nw_extra // 2 wide each)."""
-    w, h, bpp, rows = pngcheck.read_pixels(png_path)
+def band_dark_fraction(png_path, nw_extra, rows=None):
+    """Share of dark pixels in the left and right outer bands (nw_extra // 2 wide each),
+    over the row range rows = (first, end) or the whole height."""
+    w, h, bpp, pixel_rows = pngcheck.read_pixels(png_path)
+    y0, y1 = rows or (0, h)
     band = nw_extra // 2
     result = []
     for x0 in (0, w - band):
         dark = 0
-        for row in rows:
+        for row in pixel_rows[y0:y1]:
             for x in range(x0, x0 + band):
                 if max(row[x * bpp:x * bpp + 3]) < DARK_BELOW:
                     dark += 1
-        result.append(dark / (band * h))
+        result.append(dark / (band * (y1 - y0)))
     return tuple(result)
+
+
+def band_diff(png_a, png_b, nw_extra):
+    """Mean absolute difference per channel byte over both outer bands (nw_extra // 2 wide each)."""
+    w, h, bpp, rows_a = pngcheck.read_pixels(png_a)
+    _w, _h, _bpp, rows_b = pngcheck.read_pixels(png_b)
+    band = nw_extra // 2
+    total = count = 0
+    for x0 in (0, w - band):
+        for ra, rb in zip(rows_a, rows_b):
+            seg_a, seg_b = ra[x0 * bpp:(x0 + band) * bpp], rb[x0 * bpp:(x0 + band) * bpp]
+            total += sum(abs(p - q) for p, q in zip(seg_a, seg_b))
+            count += len(seg_a)
+    return total / count
+
+
+def find_patch_x(wide_png, narrow_png, box, search):
+    """x shift of the narrow picture's box (x0, y0, x1, y1) inside the wide picture:
+    the offset in range(search[0], search[1] + 1) with the smallest mean absolute difference."""
+    _wn, _hn, bpp_n, rows_n = pngcheck.read_pixels(narrow_png)
+    ww, _hw, bpp_w, rows_w = pngcheck.read_pixels(wide_png)
+    x0, y0, x1, y1 = box
+    patch = [rows_n[y][x0 * bpp_n:x1 * bpp_n] for y in range(y0, y1)]
+    best, best_dx = None, None
+    for dx in range(search[0], search[1] + 1):
+        if (x1 + dx) > ww:
+            break
+        cost = 0
+        for row, y in zip(patch, range(y0, y1)):
+            wide = rows_w[y][(x0 + dx) * bpp_w:(x1 + dx) * bpp_w]
+            if bpp_n == bpp_w:
+                cost += sum(abs(a - b) for a, b in zip(row, wide))
+            else:  # compare RGB only
+                cost += sum(abs(row[i * bpp_n + c] - wide[i * bpp_w + c])
+                            for i in range(x1 - x0) for c in range(3))
+        if best is None or cost < best:
+            best, best_dx = cost, dx
+    return best_dx
 
 
 def present_entry(event):
@@ -57,6 +97,8 @@ PACKAGE = ("moh.enhancement.widescreen", "widescreen", {})
 INTRO_FRAME = 900         # the intro film is running by then (intro_smoke)
 SETTLE_SECS = 1.0
 LEVEL_SECS = 300.0
+HUD_TOLERANCE = 2
+SKY_ROWS = (0, 128)       # upper half: the sky strips; the lower bands are legitimately dark ground
 
 
 def _fail(msg):
@@ -99,14 +141,96 @@ def check_on(proc, port, out_dir, deadline):
     width = pngcheck.read_pixels(shot)[0]
     if width != moh.WS_WIDE_WIDTH:
         raise SmokeFailure(f"level screenshot is {width} wide, expected {moh.WS_WIDE_WIDTH}")
+    hud = check_hud(port, out_dir)
     psxrun.hold_buttons(port, "r2")
     expect_path(port, out_dir, "aim", True)
+    crosshair = hud_shift(port, out_dir, "crosshair", moh.WS_CROSSHAIR_BOX)
     psxrun.release(port)
+    if abs(crosshair - moh.WS_NW_EXTRA // 2) > HUD_TOLERANCE:
+        raise SmokeFailure(f"crosshair shifted by {crosshair}, expected {moh.WS_NW_EXTRA // 2} (centred)")
+    sky = check_sky(port, out_dir)
     psxrun.press(port, "start")
     expect_path(port, out_dir, "pause", moh.WS_PAUSE_PATH == "wide")
     psxrun.press(port, "start")
     expect_path(port, out_dir, "resumed", True)
-    return f"level wide={width}x{state['nw_extra']} pause={moh.WS_PAUSE_PATH}"
+    return (f"level wide={width}x{state['nw_extra']} pause={moh.WS_PAUSE_PATH} hud={hud} "
+            f"crosshair={crosshair} sky={sky}")
+
+
+def check_sky(port, out_dir):
+    """The sky reaches into both side bands: in four view directions the upper half
+    of each band is no darker than the 4:3 picture's own edges (plus a margin)."""
+    worst = 0.0
+    for i in range(4):
+        set_yaw(port, moh.WS_SKY_BASE_YAW + i * moh.YAW_UNITS_PER_TURN // 4)
+        state, shot = expect_path(port, out_dir, f"sky{i}", True)
+        left, right = band_dark_fraction(shot, state["nw_extra"], rows=SKY_ROWS)
+        if max(left, right) > moh.WS_SKY_MAX_DARK:
+            raise SmokeFailure(f"sky view {i}: upper side bands {left:.3f}/{right:.3f} dark "
+                               f"(> {moh.WS_SKY_MAX_DARK}): the sky does not reach the edges")
+        worst = max(worst, left, right)
+    return f"{worst:.3f}"
+
+
+def hud_shift(port, out_dir, name, box):
+    """Shift of a HUD box between a 4:3 and a 16:9 shot of the same moment."""
+    wide = flows.shot(port, out_dir, f"{name}_169.png")
+    psxdbg.send("display_aspect", port=port, num=4, den=3)
+    time.sleep(SETTLE_SECS)
+    narrow = flows.shot(port, out_dir, f"{name}_43.png")
+    psxdbg.send("display_aspect", port=port, num=16, den=9)
+    time.sleep(SETTLE_SECS)
+    return find_patch_x(wide, narrow, box, (0, moh.WS_NW_EXTRA))
+
+
+def check_hud(port, out_dir):
+    """Compass at the left edge (shift 0), ammo counter at the right edge (shift 170)."""
+    got = {}
+    for name, box, want in (("compass", moh.WS_HUD_COMPASS_BOX, 0),
+                            ("ammo", moh.WS_HUD_AMMO_BOX, moh.WS_NW_EXTRA)):
+        got[name] = hud_shift(port, out_dir, name, box)
+        if abs(got[name] - want) > HUD_TOLERANCE:
+            raise SmokeFailure(f"{name} shifted by {got[name]}, expected {want}")
+    return f"{got['compass']}/{got['ammo']}"
+
+
+def set_yaw(port, units):
+    """Face a fixed direction: the player's 16.16 yaw (write_ram writes one byte per call)."""
+    owner = psxrun.read_u32(port, moh.PLAYER_OWNER_PTR_ADDR)
+    addr = psxrun.read_u32(port, owner + moh.PLAYER_PTR_OFFSET) + moh.PLAYER_YAW_OFFSET
+    value = (units << 16) & 0xFFFFFFFF
+    for i in range(4):
+        psxdbg.send("write_ram", port=port, addr="0x%08X" % (addr + i), val=(value >> (8 * i)) & 0xFF)
+
+
+def edge_check(mission, level, yaw, side):
+    """A view where 4:3 culling dropped big polygons in the wide band: the band is
+    lit now, and a 200-px cull margin changes nothing more (nothing is culled)."""
+    def check(proc, port, out_dir, deadline):
+        base = flows.boot_to_menu(proc, port, deadline)
+        if (mission, level) == (1, 1):
+            flows.start_new_game(port, base, deadline)
+        else:
+            flows.start_level(port, base, mission, level, deadline)
+        flows.wait_until_in_level(port, out_dir, deadline)
+        time.sleep(2.0)
+        set_yaw(port, yaw)
+        state, shot = expect_path(port, out_dir, f"edge_m{mission}l{level}", True)
+        left, right = band_dark_fraction(shot, state["nw_extra"])
+        dark = left if side == "left" else right
+        if dark > moh.WS_EDGE_MAX_DARK:
+            raise SmokeFailure(f"M{mission}L{level} yaw {yaw}: {side} band {dark:.3f} dark "
+                               f"(> {moh.WS_EDGE_MAX_DARK}): polygons still culled at the edge")
+        psxdbg.send("ws_margin", port=port, value=200)
+        time.sleep(SETTLE_SECS)
+        wider = flows.shot(port, out_dir, f"edge_m{mission}l{level}_margin200.png")
+        psxdbg.send("ws_margin", port=port, value=-1)
+        diff = band_diff(shot, wider, state["nw_extra"])
+        if diff > moh.WS_MARGIN_MAX_DIFF:
+            raise SmokeFailure(f"M{mission}L{level} yaw {yaw}: a wider cull margin changes the bands "
+                               f"by {diff:.2f}: something is still culled")
+        return f"M{mission}L{level}={dark:.3f}/{diff:.2f}"
+    return check
 
 
 def check_off(proc, port, out_dir, deadline):
@@ -159,7 +283,10 @@ def main(argv=None):
         os.environ.get("TEMP", REPO_ROOT), "widescreen-" + time.strftime("%Y%m%d-%H%M%S")))
     print(f"widescreen_smoke: out={args.out_root}", flush=True)
     try:
-        parts = [run(args, "on", check_on, True), run(args, "off", check_off, False)]
+        parts = [run(args, "on", check_on, True)]
+        for mission, level, yaw, side in moh.WS_EDGE_VIEWS:
+            parts.append(run(args, f"edge_m{mission}l{level}", edge_check(mission, level, yaw, side), True))
+        parts.append(run(args, "off", check_off, False))
         print("widescreen_smoke: OK " + " ".join(parts))
         return 0
     except SmokeFailure as exc:

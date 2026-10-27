@@ -34,8 +34,11 @@ seeds = "seeds/ghidra_funcs.txt"
 out_dir = "generated"
 strict = true
 # Mouse look (M4, src/mouse/moh_mouse_plugin.c): LEVEL.BIN's yaw store and
-# the two aim-rate loads. The hooks only act while the mouse package is enabled.
-mod_instruction_sites = ["0x800801E0", "0x8007FC94", "0x8007FE7C"]
+# the two aim-rate loads. Widescreen (M5, src/widescreen/moh_widescreen_plugin.c):
+# the same yaw store and aim-X load as the gameplay signal, the text glyph store
+# and the ammo icon store to anchor the ammo counter, and the sky strip link to
+# stretch the sky. The hooks only act while their package is enabled.
+mod_instruction_sites = ["0x800801E0", "0x8007FC94", "0x8007FE7C", "0x8005FC1C", "0x800807C8", "0x8008A098"]
 
 [runtime]
 window_title = "MOH Recompiled"
@@ -56,3 +59,24 @@ multitap_analog = true
 require_cue = true
 required_tracks = 1
 required_disc_fp = "d7a1aa9191b3dab30ba62c8d83960dd4f895ee3d7a06670feb011f9cc3a6dd18"
+
+[widescreen]
+native_wide = true
+# The compass HUD (fixed packets, built by LEVEL.BIN 0x80060D04/0x80060B14)
+# moves to the left edge by the thirds rule. The ammo counter shares its
+# packet arena with the world, so moh.widescreen tags it instead.
+nw_left_hud_packet_lo = "0x000ABF60"
+nw_left_hud_packet_hi = "0x000AD7B8"
+
+# Polygon rejection at the screen edges (M5 Task 3, found 2026-10-27): the boot
+# EXE's triangle outcode test 0x80011214 (width 540 from 0x8009CE10) and
+# LEVEL.BIN's node bounding-box test 0x8008B9C8. Widened only while 16:9 is
+# active; identity at 4:3.
+[widescreen.cull]
+bltz_sites = [
+    "0x8008BE14", "0x8008C330",                 # LEVEL.BIN node bbox, left reject
+    "0x800113B0", "0x80011400", "0x80011440",   # EXE triangle outcode, left bits
+]
+screen_x_sites = ["0x800113B8", "0x80011408", "0x80011448"]   # sltu t8, SX, W
+clip_edge_x_load_sites = ["0x8008B9F0", "0x80011394"]         # loads of W = 540
+clip_edge_width = 540

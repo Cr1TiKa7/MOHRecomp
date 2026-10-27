@@ -1,6 +1,6 @@
 {
   "game_id": "SLES-02470",
-  "recipe_input_sha256": "6bc2a8f4331ec0dde2e9ddb57554ddd15414fc98d7f0ba530e1427eb7e1301f9",
+  "recipe_input_sha256": "95d98e2b887f734cf65e8258738ba22ba677ab2b287a8b0171b00a2297ee67fb",
   "recipe_count": 3,
   "all_pairs_valid": true,
   "all_guards_match_known_input_bytes": true,
@@ -29,9 +29,9 @@
   "published_variants": 43142,
   "files": {
     "overlays_static.c": "e56bd171afae3ec81a95a5f71b6b8f8682ca6f958dfb21f75efa856b1247fa00",
-    "overlays_static_0000.c": "f7b25febaa0b1a95e65bb875b7014f012ba630aaaffca212b4c6b0839b38f069",
-    "overlays_static_0001.c": "100edf0b5124a5ce0bb56229c7ab67aab39cf1c9cc5ab30820744a16b543b28a",
-    "overlays_static_0002.c": "1d9f07ef2224003c385d28ae96872a46fa2e5144edaee6f46b99e5971bf81301"
+    "overlays_static_0000.c": "bdd14b4aa2ff183c03a8b534ba2dd47eb29c11776e1e74b5f33927529f4a394e",
+    "overlays_static_0001.c": "f5577128cec705bcc7ec0d65452ff834a12d695186b73f285323d33f529205ee",
+    "overlays_static_0002.c": "6bae56aa4cda0ece2431e34538a5e0c465c6e6317f7cea13541230be344b5560"
   },
   "variants": [
     {
@@ -215757,12 +215757,12 @@
   "generation_inputs": {
     "schema": "psxrecomp AOT static generation inputs v1",
     "profile_sha256": "d01b2b39320fef03ce2247c01c3de477327589925e3cfe5b0d27ce348764cc8d",
-    "game_toml_sha256": "0c0cebafc35641298d70d7afef87c8bef04012df72657c8d4ec425d35922f1ac",
+    "game_toml_sha256": "fbb191935e4d70e0520c200af1d294c49c7a781d5a957c8aa69ae6c44f188a04",
     "disc": {
       "sha256": "cf3b37769f0bd83dbf901e460af3c93591db137bbbd90fed9e91bfd2319fbba4"
     },
     "recompiler_sha256": "3f78162769c5cfbd279cd3f0c0802cc7279a28cf47955fa62470b19667c149bc",
-    "cache_tag": "cg18_67fb3a9e_gc18277886_f0",
+    "cache_tag": "cg18_67fb3a9e_gc011bcc36_f0",
     "cps": true,
     "gcc": "D:\\RecompDev\\Toolchain\\bin\\clang.exe",
     "tools": {
@@ -215783,5 +215783,5 @@
     },
     "mod_packages": {}
   },
-  "generation_inputs_sha256": "11d0a0efcf9c81d50348aa0d224dded01b63960acaa298d543829d9b2cb00662"
+  "generation_inputs_sha256": "0c9f242abf7e0909c44c3cac194504d9e7d1bcc49425fa6fe536d8b624ef94c7"
 }

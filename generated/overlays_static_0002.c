@@ -37,6 +37,9 @@ extern int  psx_ws_cull_slti_lower(uint32_t sx, uint32_t imm); /* ws cull signed
 extern int  psx_ws_cull_bltz(uint32_t v);                  /* ws cull signed left edge (gpu.c) */
 extern int  psx_ws_cull_bgez(uint32_t v);                  /* ws cull signed left keep (gpu.c) */
 extern uint32_t psx_ws_clip_edge_x(uint32_t v, uint32_t w); /* ws cull clip-edge bound load (gpu.c) */
+extern uint32_t psx_ws_cull_lui_hi(uint32_t imm);          /* ws screen-x edge in the high half (gpu.c) */
+extern int  psx_ws_cull_bltz_hi(uint32_t v);               /* ws cull left edge, X in the high half (gpu.c) */
+extern int  psx_ws_cull_sltu_band(uint32_t sx, uint32_t bound); /* ws screen-x band, W in a register (gpu.c) */
 extern int  psx_ws_cull_vxrange(uint32_t x, uint32_t imm); /* ws masked-u16 X window */
 extern int32_t psx_ws_depth_bound(int32_t imm);            /* ws aspect-scaled far bound */
 extern int32_t psx_ws_plane_nx(int32_t nx);                /* ws side-plane normal-X scale (gpu.c) */
@@ -403728,8 +403731,11 @@ block_8005FC10:
 #ifdef PSX_ENABLE_BLOCK_CYCLES
     psx_cyc_step(cpu, 0x20000080u);
 #endif
-    { uint32_t _pgxa = cpu->gpr[29] + 12; g_debug_last_store_pc = 0x8005FC1Cu; psx_store_cycle_barrier(); cpu->write_word(cpu->gpr[29] + 12, cpu->gpr[7]);
+psx_mod_instruction(cpu, 0x8005FC1Cu, 0xAFA7000Cu);
+    { uint32_t _mod_ea = psx_mod_memory_address(cpu, 0x8005FC1Cu, 0xAFA7000Cu, (uint32_t)(cpu->gpr[29] + 12));
+    { uint32_t _pgxa = _mod_ea; g_debug_last_store_pc = 0x8005FC1Cu; psx_store_cycle_barrier(); cpu->write_word(_mod_ea, cpu->gpr[7]);
     PGXP_STORE(0xAFA7000Cu, _pgxa, cpu->gpr[7]); }  /* 0x8005FC1C: 0xAFA7000C */
+    }
 #ifdef PSX_COSIM
     cosim_instr(0x8005FC1Cu);
 #endif
@@ -792333,6 +792339,7 @@ block_800807BC:
 #ifdef PSX_ENABLE_BLOCK_CYCLES
     psx_cyc_step(cpu, 0x1u);
 #endif
+psx_mod_instruction(cpu, 0x800807C8u, 0x00000000u);
     /* nop */  /* 0x800807C8: 0x00000000 */
 #ifdef PSX_COSIM
     cosim_instr(0x800807C8u);
@@ -907245,7 +907252,8 @@ block_8008A090:
 #ifdef PSX_COSIM
     cosim_instr(0x8008A094u);
 #endif
-    #ifdef PSX_ENABLE_BLOCK_CYCLES
+    psx_mod_instruction(cpu, 0x8008A098u, 0x11000036u);
+#ifdef PSX_ENABLE_BLOCK_CYCLES
     psx_cyc_step(cpu, 0x101u);
 #endif
     int _bc_8008A098 = (cpu->gpr[8] == cpu->gpr[0]);  /* save branch cond before delay slot */

@@ -172,3 +172,22 @@ WS_NW_EXTRA = 170
 WS_WIDE_WIDTH = 682
 WS_GAMEPLAY_GATE = "plugin world-scene predicate"
 WS_PAUSE_PATH = "native43"   # filled in from the first run (Task 1 step 5)
+# HUD boxes in 4:3 screenshots (512 wide) of M1L1: compass ring, ammo counter
+# (icon + digits), crosshair (aim mode). In native-wide the compass belongs at
+# the left edge (shift 0), the ammo counter at the right (170), the crosshair
+# in the centre (85). Packet facts: src/mouse/moh_addrs.h and the M5 ledger.
+WS_HUD_COMPASS_BOX = (20, 15, 100, 57)
+WS_HUD_AMMO_BOX = (390, 6, 490, 20)
+WS_CROSSHAIR_BOX = (236, 128, 272, 152)
+# Edge culling (M5 Task 3): views where 4:3 culling dropped big polygons in the
+# wide bands (dark share before the fix .827 / .216 / .115). The yaw is the
+# absolute 12-bit angle; the level is entered from its start position.
+WS_EDGE_VIEWS = ((1, 1, 3811, "left"), (3, 1, 1221, "left"), (7, 1, 1024, "right"))
+WS_EDGE_MAX_DARK = 0.05
+WS_MARGIN_MAX_DIFF = 2.0
+# Sky (M5 Task 2): LEVEL.BIN draws it as 8 gouraud strips 512 wide (packets
+# 0x800B7E40 + i * 0x24, linked into the OT by SW $v1, 0($s0) at 0x8008A098);
+# moh.widescreen tags them as background so they stretch over the side bands.
+# Upper-half dark share per band: 4:3 edges at most .145, so .195 allows .05.
+WS_SKY_BASE_YAW = 1251    # M1L1 start direction
+WS_SKY_MAX_DARK = 0.195

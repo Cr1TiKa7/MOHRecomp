@@ -34,5 +34,28 @@
 #define MOH_TILT_MIN              (-44695552)
 #define MOH_TILT_MAX              44695552
 
+/* HUD packets (M5). The ammo digits are rect glyphs from the text routine
+ * 0x8005FA50; at SW $v0, 0($s3) the glyph packet is complete, $s3 is its
+ * P_TAG and $s2 its text-queue entry (+4 x, +6 y, halfwords, 512-wide
+ * screen). The ammo icon is a poly at player + 0xB8, tagged at SW $a0,
+ * 184($v1). The compass lives in a fixed packet range (game.toml
+ * [widescreen] nw_left_hud_packet_lo/hi). */
+#define MOH_TEXT_GLYPH_PC         0x8005FC1Cu
+#define MOH_TEXT_GLYPH_WORD       0xAE620000u
+#define MOH_AMMO_ICON_PC          0x800807C8u
+#define MOH_AMMO_ICON_WORD        0xAC6400B8u
+#define MOH_AMMO_ICON_OFFSET      0xB8u
+#define MOH_HUD_RIGHT_MIN_X       342          /* right third of the 512-wide screen */
+#define MOH_HUD_TOP_MAX_Y         20           /* the top HUD row (ammo counter at y 10) */
+
+/* Sky (M5): 8 gouraud strips 512 wide drawn first each frame (packets
+ * 0x800B7E40 + i * 0x24, two draw buffers). SW $v1, 0($s0) links strip $s0
+ * into the OT; its command words are final then. */
+#define MOH_SKY_LINK_PC           0x8008A098u
+#define MOH_SKY_LINK_WORD         0xAE030000u
+
 #define MOH_REG_S0                16
+#define MOH_REG_S2                18
+#define MOH_REG_S3                19
+#define MOH_REG_V1                3
 #define MOH_REG_SP                29
