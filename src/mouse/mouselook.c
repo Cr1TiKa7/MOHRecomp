@@ -23,6 +23,7 @@ static int32_t convert(double value, double *rem, double max) {
 
 void moh_look_init(MohLook *look, int sensitivity, int invert_y, int y_rate_per_fixed) {
     look->y_rate_per_fixed = y_rate_per_fixed;
+    look->free_look = 0;
     moh_look_set(look, sensitivity, invert_y);
     moh_look_reset(look);
 }
@@ -30,6 +31,10 @@ void moh_look_init(MohLook *look, int sensitivity, int invert_y, int y_rate_per_
 void moh_look_set(MohLook *look, int sensitivity, int invert_y) {
     look->sensitivity = clamp_sens(sensitivity);
     look->invert_y = invert_y != 0;
+}
+
+void moh_look_set_free_look(MohLook *look, int on) {
+    look->free_look = on != 0;
 }
 
 void moh_look_reset(MohLook *look) {
@@ -48,8 +53,11 @@ static double per_count(const MohLook *look) {
 
 int32_t moh_look_take_yaw(MohLook *look) {
     const int32_t yaw = convert(look->pend_x * per_count(look), &look->rem_x, MOH_LOOK_YAW_MAX);
-    look->pend_x = look->pend_y = 0.0;
-    look->rem_y = 0.0;
+    look->pend_x = 0.0;
+    if (!look->free_look) {
+        look->pend_y = 0.0;
+        look->rem_y = 0.0;
+    }
     return yaw;
 }
 

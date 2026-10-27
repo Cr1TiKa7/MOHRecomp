@@ -48,6 +48,21 @@ static void yaw_drops_vertical(void) {
     CHECK(moh_look_take_aim_y(&look) == 0);   /* no aim mode this frame: vertical motion is gone */
 }
 
+static void free_look_keeps_vertical(void) {
+    init(40, 0);
+    moh_look_set_free_look(&look, 1);
+    moh_look_motion(&look, 100, 10);
+    CHECK(moh_look_take_yaw(&look) == 4096000);
+    CHECK(moh_look_take_aim_y(&look) == 10 * 40 * 1024 * 2);   /* the normal-play tilt rate takes it */
+    moh_look_motion(&look, 0, 0.0001);                          /* 8.192 rate units: the fraction */
+    CHECK(moh_look_take_yaw(&look) == 0);                       /* survives the yaw store */
+    CHECK(moh_look_take_aim_y(&look) == 8);
+    moh_look_set_free_look(&look, 0);
+    moh_look_motion(&look, 0, 10);
+    CHECK(moh_look_take_yaw(&look) == 0);
+    CHECK(moh_look_take_aim_y(&look) == 0);
+}
+
 static void aim_x_rate(void) {
     init(40, 0);
     moh_look_motion(&look, 100, 0);
@@ -149,6 +164,7 @@ int main(void) {
     negative_carries();
     reset_drops();
     yaw_drops_vertical();
+    free_look_keeps_vertical();
     aim_x_rate();
     aim_y_rate();
     aim_axes_independent();

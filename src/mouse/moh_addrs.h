@@ -29,6 +29,12 @@
 #define MOH_AIM_Y_RATE_PER_FIXED  2            /* vertical rate units per 16.16 look-angle unit */
 #define MOH_PLAYER_AIM_X_OFFSET   0x188u       /* aim-mode crosshair X */
 
+/* Normal play: the right stick's tilt rate, loaded from 16($sp) in the same
+ * player function; the game does tilt -= rate >> 1 (clamped to the tilt
+ * limits) and keeps the tilt. Shots follow it (free look, M4 follow-up). */
+#define MOH_TILT_RATE_PC          0x80080470u  /* LW $v1, 16($sp) */
+#define MOH_TILT_RATE_WORD        0x8FA30010u
+
 #define MOH_PITCH_MIN             (-983040)
 #define MOH_PITCH_MAX             983040
 #define MOH_TILT_MIN              (-44695552)

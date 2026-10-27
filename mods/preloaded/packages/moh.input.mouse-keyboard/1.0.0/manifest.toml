@@ -3,7 +3,7 @@ id = "moh.input.mouse-keyboard"
 version = "1.0.0"
 name = "Mouse + Keyboard"
 author = "MOHRecomp"
-description = "Mouse look for Medal of Honor: the mouse turns the player, and while the aim button is held (right mouse button = R2) it moves the crosshair and tilts the view like the pad does. Keys and mouse buttons are set in keybinds.ini (Controls page)."
+description = "Mouse look for Medal of Honor: the mouse turns the player and tilts the view up and down like the right stick of a DualShock (shots follow the view), and while the aim button is held (right mouse button = R2) it moves the crosshair like the pad does. Keys and mouse buttons are set in keybinds.ini (Controls page)."
 license = "MIT"
 resolver = "declarative"
 save_compatibility = "shared"
@@ -37,7 +37,16 @@ label = "Invert mouse Y"
 description = "Moving the mouse up aims down."
 group = "Input"
 type = "boolean"
-default = false
+default = "false"   # the framework reads boolean defaults as strings only
+
+[[option]]
+feature = "mouse-look"
+id = "free_look"
+label = "Free vertical look"
+description = "Moving the mouse up and down tilts the view without holding the aim button, as the right stick does; shots go where the view points. Off: up and down only in aim mode."
+group = "Input"
+type = "boolean"
+default = "true"
 
 [[plugin]]
 feature = "mouse-look"

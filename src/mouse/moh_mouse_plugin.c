@@ -43,6 +43,11 @@ static int option_invert_y(void) {
     return option_text("invert_y", buf, sizeof buf) && strcmp(buf, "true") == 0;
 }
 
+static int option_free_look(void) {
+    char buf[16];
+    return option_text("free_look", buf, sizeof buf) ? strcmp(buf, "true") == 0 : 1;
+}
+
 static int in_gameplay(void) {
     return moh_look_eligible(psx_mod_read_word(MOH_OVERLAY_ADDR), 0, g_vblanks,
                              g_hook_vblank, g_hook_seen);
@@ -103,8 +108,9 @@ static void frame_hook(void) {
     g_hook_seen = 1;
 }
 
-/* The aim rate sits in 16($sp) and is loaded by the hooked instruction. */
-static void add_to_aim_rate(struct CPUState *cpu, int32_t rate) {
+/* The rate sits in 16($sp) and is loaded by the hooked instruction (the two
+ * aim rates and the normal-play tilt rate). */
+static void add_to_rate(struct CPUState *cpu, int32_t rate) {
     if (!rate) return;
     const uint32_t slot = cpu->gpr[MOH_REG_SP] + MOH_AIM_RATE_SP_OFFSET;
     psx_mod_write_word(slot, psx_mod_read_word(slot) + (uint32_t)rate);
@@ -124,7 +130,7 @@ static void on_aim_x(struct CPUState *cpu, uint32_t address) {
     (void)address;
     if (!is_player(cpu)) return;
     frame_hook();
-    add_to_aim_rate(cpu, moh_look_take_aim_x(&g_look));
+    add_to_rate(cpu, moh_look_take_aim_x(&g_look));
     psx_mod_counter_add("moh_mouse.aim_x_hook", 1);
 }
 
@@ -132,12 +138,23 @@ static void on_aim_x(struct CPUState *cpu, uint32_t address) {
 static void on_aim_y(struct CPUState *cpu, uint32_t address) {
     (void)address;
     if (!is_player(cpu)) return;
-    add_to_aim_rate(cpu, moh_look_take_aim_y(&g_look));
+    add_to_rate(cpu, moh_look_take_aim_y(&g_look));
     psx_mod_counter_add("moh_mouse.aim_y_hook", 1);
+}
+
+/* Normal play, before LW $v1, 16($sp): the right stick's tilt rate. With free
+ * look the mouse's vertical motion adds to it, so the game tilts, clamps and
+ * keeps the view exactly as for the stick. */
+static void on_tilt_rate(struct CPUState *cpu, uint32_t address) {
+    (void)address;
+    if (!g_look.free_look || !is_player(cpu)) return;
+    add_to_rate(cpu, moh_look_take_aim_y(&g_look));
+    psx_mod_counter_add("moh_mouse.tilt_hook", 1);
 }
 
 static void on_activate(void) {
     moh_look_init(&g_look, option_sensitivity(), option_invert_y(), MOH_AIM_Y_RATE_PER_FIXED);
+    moh_look_set_free_look(&g_look, option_free_look());
     g_vblanks = g_hook_vblank = 0;
     g_hook_seen = 0;
     atomic_store(&g_inbox_x, 0);
@@ -155,6 +172,8 @@ static int on_option_changed(const char *option_id, const char *value) {
         moh_look_set(&g_look, atoi(value), g_look.invert_y);
     else if (strcmp(option_id, "invert_y") == 0)
         moh_look_set(&g_look, g_look.sensitivity, strcmp(value, "true") == 0);
+    else if (strcmp(option_id, "free_look") == 0)
+        moh_look_set_free_look(&g_look, strcmp(value, "true") == 0);
     else
         return 0;
     return 1;
@@ -180,6 +199,7 @@ PSX_MOD_CONSTRUCTOR(moh_mouse_register) {
     psx_mod_register_instruction_plugin(PLUGIN_ID, MOH_YAW_STORE_PC, MOH_YAW_STORE_WORD, on_yaw_store);
     psx_mod_register_instruction_plugin(PLUGIN_ID, MOH_AIM_X_RATE_PC, MOH_AIM_X_RATE_WORD, on_aim_x);
     psx_mod_register_instruction_plugin(PLUGIN_ID, MOH_AIM_Y_RATE_PC, MOH_AIM_Y_RATE_WORD, on_aim_y);
+    psx_mod_register_instruction_plugin(PLUGIN_ID, MOH_TILT_RATE_PC, MOH_TILT_RATE_WORD, on_tilt_rate);
     psx_mod_register_vblank_plugin(PLUGIN_ID, on_vblank);
     psx_mod_register_option_changed_plugin(PLUGIN_ID, on_option_changed);
     psx_mod_register_command("moh_mouse", cmd_moh_mouse);

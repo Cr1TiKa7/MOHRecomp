@@ -8,7 +8,8 @@
 # 'coverage-long' measures ~10 min each of videos, menus and levels (~45 min); not part of 'all'.
 # 'mp' plugs a second pad in over the debug port and plays the split screen (~4 min); not part of 'all'.
 # 'mouse' switches the mouse package on (build-dir mods/state.toml, restored afterwards) and checks
-# yaw, aim-mode pitch, pause, split screen and package off in three boots (~12 min); not part of 'all'.
+# yaw, free look, aim-mode pitch, pause, split screen, package off and free look off in four boots
+# (~10 min); not part of 'all'.
 # 'widescreen' switches the widescreen package on and checks 16:9 only in gameplay (film, menu,
 # poster and pause stay 4:3), HUD anchors, edge culling in M1L1/M3L1/M7L1 and package off, in five boots (~11 min); not part of 'all'.
 # 'pgxp' runs M1L1 at 4K with the PGXP package on and checks the corrected-triangle share (~5 min); not part of 'all'.

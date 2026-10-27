@@ -33,12 +33,14 @@ known_crc32 = [
 seeds = "seeds/ghidra_funcs.txt"
 out_dir = "generated"
 strict = true
-# Mouse look (M4, src/mouse/moh_mouse_plugin.c): LEVEL.BIN's yaw store and
-# the two aim-rate loads. Widescreen (M5, src/widescreen/moh_widescreen_plugin.c):
-# the same yaw store and aim-X load as the gameplay signal, the text glyph store
-# and the ammo icon store to anchor the ammo counter, and the sky strip link to
-# stretch the sky. The hooks only act while their package is enabled.
-mod_instruction_sites = ["0x800801E0", "0x8007FC94", "0x8007FE7C", "0x8005FC1C", "0x800807C8", "0x8008A098"]
+# Mouse look (M4, src/mouse/moh_mouse_plugin.c): LEVEL.BIN's yaw store, the
+# two aim-rate loads and the normal-play tilt rate load (free look, last).
+# Widescreen (M5, src/widescreen/moh_widescreen_plugin.c): the same yaw store
+# and aim-X load as the gameplay signal, the text glyph store and the ammo icon
+# store to anchor the ammo counter, and the sky strip link to stretch the sky.
+# The hooks only act while their package is enabled.
+mod_instruction_sites = ["0x800801E0", "0x8007FC94", "0x8007FE7C", "0x8005FC1C", "0x800807C8", "0x8008A098",
+                         "0x80080470"]
 
 [runtime]
 window_title = "MOH Recompiled"

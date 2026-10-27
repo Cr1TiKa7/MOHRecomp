@@ -72,7 +72,7 @@ build-dev\moh_mouselook_test.exe
 | `save` | Lädt das Fixture `D:\RecompDev\fixtures\moh-m1l1-complete.mcd` über WAR RECORDS → LOAD GAME. Der Spielername steht vorher nicht im Spielspeicher, danach schon. Die Karte wurde gelesen, das Spiel läuft weiter, das Fixture bleibt unverändert. | ~2 min |
 | `sweep` | Pro Level eine eigene Instanz ohne Autocompile: Sprung ins Level (siehe „Level-Sprung“), 30 s Laufen/Drehen/Schießen. Das Level hat seine eigenen Daten gelesen (bei allen außer M1L1 keine von M1L1), das Bild ändert sich weiter, Interpreter-Anteil < 1 %. Eine Zeile pro Level, bricht nie vorzeitig ab. `-Bonus` springt stattdessen in die MSN12-Ordner. | ~3 min pro Level |
 | `mp` | Ohne Autocompile: steckt über den Debug-Port einen Controller in Port 2, MULTIPLAYER → START GAME. `LEVEL2P.BIN` liegt an `0x80039F28`, jeder Controller dreht nur seine Bildhälfte (Spieler 1 oben), 60 s beide Spieler aktiv, `/DATA/TWOPLAYR/` gelesen, Interpreter-Anteil < 1 %. | ~4 min |
-| `mouse` | Maus-Paket an (`build-dev\mods\state.toml`, danach wiederhergestellt), drei Starts. M1L1: Gier pro Impuls exakt; im Zielmodus Fadenkreuz Y/X, Kameraneigung und Drehen am Rand exakt; nach dem Loslassen Fadenkreuz 0, Neigung bleibt; senkrechte Bewegung ohne Zielmodus und jede Bewegung in der Pause verfällt; alle Hook-Stellen laufen nativ. Splitscreen: kein Hook greift. Paket aus: keine Wirkung. | ~12 min |
+| `mouse` | Maus-Paket an (`build-dev\mods\state.toml`, danach wiederhergestellt), vier Starts. M1L1: Gier pro Impuls exakt; im Zielmodus Fadenkreuz Y/X, Kameraneigung und Drehen am Rand exakt; nach dem Loslassen Fadenkreuz 0, Neigung bleibt; senkrechte Bewegung ohne Zielmodus neigt exakt (freies Hoch/Runter), das Fadenkreuz bleibt 0; Bewegung in der Pause verfällt; alle vier Hook-Stellen laufen nativ. Splitscreen: kein Hook greift. Paket aus: keine Wirkung. `free_look` aus: senkrechte Bewegung ohne Zielmodus wirkt nicht, Drehen schon. | ~10 min |
 | `widescreen` | Breitbild-Paket an, fünf Starts. Intro-Film, Menü, Ladeplakat und Pause bleiben 4:3 (`present_ring`), M1L1 und Zielmodus sind breit (682 Pixel statt 512). HUD: Kompass am linken Rand, Munition am rechten, Fadenkreuz mittig (gemessene Verschiebung 0/170/85). Himmel füllt die Seitenstreifen (dunkler Anteil der oberen Hälfte ≤ 0,195 in vier Blickrichtungen). Blicke, in denen vorher am Rand Polygone fehlten (M1L1, M3L1, M7L1): ≤ 5 % dunkel, mit `ws_margin 200` unverändert. Paket aus: 4:3. | ~11 min |
 | `pgxp` | PGXP-Paket an, interne Auflösung 4K. M1L1: `video_info` meldet Faktor 9 ohne Begrenzung, in 2 s Drehen und 2 s Laufen hat ein Anteil ≥ `PGXP_MIN_CORRECTED` (0,198) der Dreiecke ganz oder teilweise PGXP-Präzision (`geom_correction`). | ~5 min |
 | `coverage-long` | Ohne Autocompile je 10 min Videos (Boot ohne Turbo, dann der ~108-s-Film unter BRIEFING in Schleife; jeder Durchlauf muss MDEC-Daten liefern und ins Menü zurückkehren), Menüs (Ring, OPTIONS, WAR RECORDS, GALLERY) und Levels (M1L1, M3L1, M7L1). Jede Phase zählt nur ihre eigenen Fenster und muss < 1 % interpretiert bleiben. Einträge an den Kernel-Patch-Slots des BIOS stehen als `slot=` daneben und zählen nicht mit (siehe „Overlays vorab nativ“). | ~45 min |
@@ -164,22 +164,24 @@ Das Mod-Paket liegt unter `mods/preloaded/packages/moh.input.mouse-keyboard/` un
 - **Optionen:**
   - `sensitivity`: 1–200, Standard 40, das sind 6 550 Impulse pro Umdrehung
   - `invert_y`: Y-Achse umkehren
-  - Beide wirken auch live.
+  - `free_look`: freies Hoch/Runter ohne Zielmodus, Standard an
+  - Alle wirken auch live.
+  - Bool-Optionen brauchen ihren Standardwert als Text (`default = "true"`): Das Framework liest `default = true` ohne Anführungszeichen stillschweigend als `"false"` (`mod_packages.cpp`).
 - **Bedienung:** Klick ins Fenster fängt die Maus ein (dieser Klick schießt nicht), Esc gibt sie frei. Verlässt man das Spiel (Pause, Menü, Ladebild), gibt die Runtime die Maus frei, ein Klick fängt sie wieder.
 - **Wirkung:**
-  - Normales Spielen: Die Maus dreht.
+  - Normales Spielen: Die Maus dreht und neigt die Ansicht wie der rechte Stick eines DualShock (freies Hoch/Runter). Das Spiel neigt, begrenzt und hält die Neigung selbst. Schüsse gehen dorthin, wohin die Ansicht zeigt: Einschusslöcher landen bei −56° bis +17° in der Bildmitte.
   - Rechte Maustaste (R2) hält den Zielmodus: Die Maus bewegt das Fadenkreuz, an dessen Rand dreht bzw. kippt die Ansicht.
-  - Hoch/runter gibt es nur im Zielmodus, wie im Original.
+  - Mit `free_look = false` gibt es Hoch/Runter nur im Zielmodus, wie mit einem Digital-Pad im Original.
 - **Analoges Pad:** Mit dem Paket meldet sich Spieler 1 als DualShock. Dann gilt das Original-Verhalten mit Analogpad:
   - Die Kameraneigung bleibt nach dem Zielen stehen.
   - Im Zielmodus zielt der Stick, nicht das Steuerkreuz.
 - **Code:**
   - `src/mouse/mouselook.c`: Rechenlogik
-  - `src/mouse/moh_mouse_plugin.c`: Plugin `moh.mouse-look`
+  - `src/mouse/moh_mouse_plugin.c`: Plugin `moh.mouse-look`. Hooks: Gier-Store `0x800801E0`, Neigungsrate `0x80080470` (normales Spielen, `LW $v1, 16($sp)`), Zielraten `0x8007FC94`/`0x8007FE7C` (Zielmodus).
   - Die Hook-Stellen stehen in `game.toml` (`mod_instruction_sites`). Nach Änderungen dort `generate` und neu bauen.
 - **Debug:**
   - `{"cmd":"mod_cmd","name":"moh_mouse","args":"move <dx> <dy>"}` speist Mausimpulse ein. Die echte Maus-Erfassung ist unter Debug-Eingaben und im versteckten Fenster aus.
-  - `mod_counters` zeigt `moh_mouse.activate`, `.yaw_hook`, `.aim_x_hook`, `.aim_y_hook`, `.acquired` (wie oft ein Klick die Maus eingefangen hat) und `.dropped` (per `move` eingespeiste Bewegung, die außerhalb des Spiels verworfen wurde; echte Mausbewegung verwirft die Runtime selbst).
+  - `mod_counters` zeigt `moh_mouse.activate`, `.yaw_hook`, `.tilt_hook`, `.aim_x_hook`, `.aim_y_hook`, `.acquired` (wie oft ein Klick die Maus eingefangen hat) und `.dropped` (per `move` eingespeiste Bewegung, die außerhalb des Spiels verworfen wurde; echte Mausbewegung verwirft die Runtime selbst).
   - Als „im Spiel“ gilt: `LEVEL.BIN` geladen und ein Hook lief in den letzten 12 VBlanks (240 ms). Danach gibt die Runtime die Maus frei.
 - **Tests mit aktivem Paket:**
   - Ohne Achswerte schickt der Debug-Override jede Richtung doppelt ans Spiel, sobald Spieler 1 analog ist.

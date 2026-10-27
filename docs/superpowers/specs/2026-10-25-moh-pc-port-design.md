@@ -103,7 +103,7 @@ Erst wenn ein Meilenstein erfüllt ist, beginnt der nächste. Jeder bekommt eine
 | **M1** | Bis ins Menü | Intro-Videos laufen mit Ton. Das Hauptmenü (`SHELL.BIN`, nativ aus Disc-Daten) lässt sich per Fernsteuerung bedienen. Die Speicherkarte wird angelegt und erkannt. |
 | **M2** | Erstes Level | Mission 1, Level 1 (`LEVEL.BIN`) lädt und ist ohne Absturz von Start bis Levelende spielbar: Ton, Gegner, Briefing, Ladebildschirme. Geprüft wird per Fernsteuerung, notfalls mit Speicher-Tricks (z. B. unverwundbar), oder du spielst es kurz durch. Nach Levelende speichern, nach Neustart laden: Das Spiel speichert erst nach Missionen, das Menü hat keinen Speicherpunkt (Änderung vom 2026-10-25). |
 | **M3** | Ganzes Spiel | Alle Missionen laden und lassen sich abschließen. Die drei Overlays sind aus Disc-Daten vorkompiliert. Mit `PSX_OVERLAY_AUTOCOMPILE_OFF=1` liegt `dispatch_interp_fallback` unter 1 % aller Overlay-Dispatches, gemessen mit `run-smoke -Test coverage-long` über je 10 Minuten Menü, Einzelspieler-Level und Videos. Nicht mit zählen die Kernel-Patch-Slots des BIOS (`install_slots`), die die Runtime mit Absicht interpretiert. `tools/stall_report.py` zählt sie mit. Splitscreen startet ohne Absturz. Den kompletten Durchlauf spielst du. |
-| **M4** | Maus + Tastatur | Freies Zielen mit der Maus: Sie dreht immer und zielt im Zielmodus des Spiels (rechte Maustaste = R2) auch vertikal, wie das Pad. Empfindlichkeit einstellbar, Y-Achse invertierbar. WASD-Bewegung, Tasten in einer Konfigdatei frei belegbar. Gamepad funktioniert weiter. Du nimmst das Spielgefühl ab. |
+| **M4** | Maus + Tastatur | Freies Zielen mit der Maus: Sie dreht und neigt die Ansicht immer (wie der rechte Stick) und bewegt im Zielmodus des Spiels (rechte Maustaste = R2) das Fadenkreuz, wie das Pad. Empfindlichkeit einstellbar, Y-Achse invertierbar. WASD-Bewegung, Tasten in einer Konfigdatei frei belegbar. Gamepad funktioniert weiter. Du nimmst das Spielgefühl ab. |
 | **M5** | Bild | 16:9 ohne Objekte, die am neuen Bildrand verschwinden. HUD unverzerrt und korrekt verankert. Interne Auflösung bis 4K. Videos mit Pillarbox. Polygone wackeln nicht mehr (PGXP). |
 | **M6** | Höhere Bildrate | Flüssige Darstellung über den originalen ~25 fps, auch beim schnellen Umsehen mit der Maus. Die Spiellogik läuft unverändert im Originaltempo. |
 | **M7** | Veröffentlichung | Öffentliches GitHub-Repo, Release-Zip ohne Spieldaten, Lizenzhinweise, README mit Anleitung „eigene Disc einlegen“. Offene Rechtsfragen aus Abschnitt 9 sind geklärt. |
@@ -145,16 +145,17 @@ Umgesetzt in M4, Plan `docs/superpowers/plans/2026-10-26-moh-m4-mouse-keyboard.m
   Das geht über die freigegebene Abweichung 4 hinaus („Steuerkreuz und Tasten wirken wie bisher“), festgestellt bei der Umsetzung. Ist das Paket aus, bleibt alles digital wie in M3.
 
 **Was das Spiel vorgibt** (Erkundung M4, Werte in `tests/smoke/moh.py`):
-- **Normales Spielen:** nur Gier, 16.16-Festkomma im Spieler-Struct. Vertikal zielt das Spiel selbst (Option EASY AIM).
+- **Normales Spielen:** Gier, 16.16-Festkomma im Spieler-Struct. Vertikal zielt das Spiel selbst (Option EASY AIM); mit analogem Pad neigt der rechte Stick die Kamera (bei M4 zuerst übersehen, siehe „Freies Hoch/Runter“).
 - **Zielmodus** (R2 halten): Eine Rate pro Achse verschiebt erst das Fadenkreuz. Am Rand dreht die Ansicht (waagerecht) bzw. kippt die Kamera (senkrecht, bis etwa 60°).
 - Mit analogem Pad bleibt die Kameraneigung nach dem Loslassen stehen. Mit digitalem Pad kippt sie zurück.
 
 **Einhaken** (`src/mouse/moh_mouse_plugin.c`):
-- Drei Instruktions-Hooks in `LEVEL.BIN` (`[recompiler] mod_instruction_sites`), nativ erzeugt und auf den Spieler begrenzt:
+- Vier Instruktions-Hooks in `LEVEL.BIN` (`[recompiler] mod_instruction_sites`), nativ erzeugt und auf den Spieler begrenzt:
   - die Gier-Schreibstelle (normales Spielen)
+  - der Ladebefehl der Neigungsrate (normales Spielen, freies Hoch/Runter)
   - die beiden Raten-Ladebefehle des Zielmodus
 - Die Maus speist dieselben Werte wie das Pad. Die Grenzen und die Kamera-Logik des Spiels bleiben dadurch unverändert.
-- Nick gibt es deshalb nur im Zielmodus. Ein dauerhaft freier Nick würde die Schusslogik ändern.
+- **Freies Hoch/Runter** (Nachtrag 2026-10-27, auf Wunsch des Nutzers): Das Spiel neigt die Kamera auch außerhalb des Zielmodus, über den rechten Stick eines DualShock, und hält die Neigung. Schüsse folgen ihr (Einschusslöcher in der Bildmitte, gemessen bei −56° bis +17°). Die Schusslogik ändert sich also nicht. Ein vierter Hook speist die senkrechte Mausbewegung in diese Neigungsrate (`0x80080470`). Die Paket-Option `free_look` (Standard an) schaltet das ab; dann gibt es Hoch/Runter nur im Zielmodus.
 
 **Tasten:**
 - Über die `keybinds.ini` des Frameworks, die die Launcher-Seite Controls bearbeitet. Maustasten sind dort `Mouse1`…`Mouse5`.

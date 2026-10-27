@@ -80,6 +80,7 @@ Im Release-Build (`build-release\MOH_Recompiled.exe`). Die neue Tastenbelegung l
 9. **EASY AIM** (Options → Controller) einmal an und einmal aus. Was ist dir lieber? ______
 10. **Gamepad:** ein paar Minuten nur mit dem Pad, bei eingeschaltetem Paket. Das Pad verhält sich dann wie ein DualShock am Original: Die Sticks wirken zusätzlich, im Zielmodus zielt nur noch der linke Stick (nicht das Steuerkreuz), und die Neigung bleibt nach dem Zielen stehen. Ist das für dich in Ordnung? ______
 11. **Maus verloren?** Gibt das Spiel die Maus mitten im Spiel frei, ohne Pause, Menü oder Zwischensequenz, sodass der nächste Klick nicht schießt? Wenn ja: wo und wie oft? ______
+12. **Freies Hoch/Runter** (neu, Launcher → Mods → Mouse Look → „Free vertical look“, Standard an): Ohne rechte Maustaste neigt die Maus jetzt die Ansicht, und Schüsse gehen in die Bildmitte. Fühlt sich das richtig an? Ist die Geschwindigkeit hoch/runter passend zur Drehung? Triffst du Gegner auf Treppen oder Türmen? ______
 
 ## M5: Breitbild und Bildqualität (Abnahme)
 

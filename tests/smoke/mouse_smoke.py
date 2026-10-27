@@ -9,10 +9,13 @@ from boot with its own memory cards:
    crosshair coordinate moves by an eighth of its rate and, past its limit,
    the view turns (X) or the camera tilts (Y); releasing R2 centres the
    crosshair and, as the game does for an analog pad, keeps the tilt;
-   vertical motion outside aim mode, and any motion during the pause, is
-   dropped; all three hook sites run natively.
+   vertical motion outside aim mode tilts the camera like the right stick
+   (free look) and leaves the crosshair alone; any motion during the pause
+   is dropped; all four hook sites run natively.
 2. Package on, split screen: no hook fires, motion is dropped.
 3. Package off, Mission 1 Level 1: motion does nothing.
+4. Package on with free look off, Mission 1 Level 1: vertical motion outside
+   aim mode does nothing, horizontal motion still turns.
 
 Pad 1 goes through the virtual host gamepad while the package is on (see
 psxrun.input_layer). Prints one line: mouse_smoke: OK ... or FAIL: <reason>.
@@ -42,7 +45,8 @@ RELEASE_SECS = 1.5
 PAUSE_SECS = 1.5
 LEVEL_SECS = 300.0
 HOOK_SPAN = 0x40          # dirty_ram_stats window around each hook site
-HOOKS = ("yaw", "aim_x", "aim_y")
+HOOKS = ("yaw", "aim_x", "aim_y", "tilt")
+VALUES = {"sensitivity": SENSITIVITY, "invert_y": False}
 
 
 def s32(value):
@@ -160,10 +164,13 @@ def check_on(proc, port, out_dir, deadline):
 
     move(port, 0, 50)
     time.sleep(SETTLE_SECS)
+    free = tilt - (expected_y_rate(50, SENSITIVITY) >> 1)
+    expect("camera tilt after vertical motion outside aim mode (free look)",
+           read_s32(port, tilt_addr), free)
     psxrun.hold_buttons(port, "r2")
     time.sleep(AIM_SECS)
     expect("crosshair after vertical motion outside aim mode", read_s32(port, pitch_addr), 0)
-    expect("camera tilt after vertical motion outside aim mode", read_s32(port, tilt_addr), tilt)
+    expect("camera tilt entering aim mode after free look", read_s32(port, tilt_addr), free)
     psxrun.release(port)
     time.sleep(SETTLE_SECS)
 
@@ -179,7 +186,8 @@ def check_on(proc, port, out_dir, deadline):
     time.sleep(PAUSE_SECS)
     expect("yaw after the pause", read_s32(port, yaw_addr), yaw2)
 
-    for name, pc in (("yaw", moh.YAW_STORE_PC), ("aim x", moh.AIM_X_RATE_PC), ("aim y", moh.AIM_Y_RATE_PC)):
+    for name, pc in (("yaw", moh.YAW_STORE_PC), ("aim x", moh.AIM_X_RATE_PC), ("aim y", moh.AIM_Y_RATE_PC),
+                     ("tilt", moh.TILT_RATE_PC)):
         reply = psxdbg.send("dirty_ram_stats", port=port, lo="0x%08X" % (pc - HOOK_SPAN),
                             hi="0x%08X" % (pc + HOOK_SPAN), timeout=10.0)
         if reply.get("per_pc"):
@@ -188,7 +196,8 @@ def check_on(proc, port, out_dir, deadline):
     if not all(hooks):
         raise SmokeFailure(f"hook counters {'/'.join(HOOKS)} = {hooks}")
     return (f"yaw=+{expected_yaw(100, SENSITIVITY)} crosshair={pitch}/{moh.PITCH_MIN} "
-            f"tilt=+{tilt - tilt0} aim_x={aim_x - aim_x0} hooks={'/'.join(map(str, hooks))}")
+            f"tilt=+{tilt - tilt0} free={free - tilt} aim_x={aim_x - aim_x0} "
+            f"hooks={'/'.join(map(str, hooks))}")
 
 
 def check_split(proc, port, out_dir, deadline):
@@ -222,13 +231,23 @@ def check_off(proc, port, out_dir, deadline):
     return "off=inert"
 
 
-def run(args, label, check, package):
+def check_no_free_look(proc, port, out_dir, deadline):
+    pl = into_level(proc, port, out_dir, deadline)
+    yaw_addr, tilt_addr = pl + moh.PLAYER_YAW_OFFSET, pl + moh.PLAYER_TILT_OFFSET
+    yaw0, tilt0 = read_s32(port, yaw_addr), read_s32(port, tilt_addr)
+    move(port, 100, 50)
+    time.sleep(SETTLE_SECS)
+    expect("yaw with free look off", s32(read_s32(port, yaw_addr) - yaw0), expected_yaw(100, SENSITIVITY))
+    expect("camera tilt with free look off", read_s32(port, tilt_addr), tilt0)
+    return "free_look_off=yaw only"
+
+
+def run(args, label, check, package, values=None):
     out_dir = os.path.join(args.out_root, label)
     os.makedirs(out_dir, exist_ok=True)
     build_dir = os.path.dirname(os.path.abspath(args.exe))
     layer = psxrun.INPUT_LAYER
-    with (modstate.enabled(build_dir, {"sensitivity": SENSITIVITY, "invert_y": False}) if package
-          else _nothing()):
+    with (modstate.enabled(build_dir, values or VALUES) if package else _nothing()):
         psxrun.INPUT_LAYER = "host" if package else None
         proc = psxrun.launch(args.exe, args.cue, args.game, args.port, out_dir)
         try:
@@ -268,7 +287,8 @@ def main(argv=None):
     try:
         parts = [run(args, "on", check_on, True),
                  run(args, "split", check_split, True),
-                 run(args, "off", check_off, False)]
+                 run(args, "off", check_off, False),
+                 run(args, "no_free_look", check_no_free_look, True, dict(VALUES, free_look=False))]
         print("mouse_smoke: OK " + " ".join(parts))
         return 0
     except SmokeFailure as exc:

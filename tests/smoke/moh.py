@@ -126,6 +126,13 @@ AIM_X_RATE_WORD = 0x8FA20010
 AIM_Y_RATE_PC = 0x8007FE7C
 AIM_Y_RATE_WORD = 0x8FA40010
 AIM_RATE_SP_OFFSET = 16
+# Normal play (R2 not held): the right stick's tilt rate, LW $v1, 16($sp) in
+# the player control function 0x8007F8E8; the game then does tilt -= rate >> 1
+# and clamps to TILT_MIN..TILT_MAX, and keeps the tilt when the stick is
+# released. Shots follow the tilt (M4 free look, bullet holes at the screen
+# centre for tilts of -56..+17 degrees, 2026-10-27).
+TILT_RATE_PC = 0x80080470
+TILT_RATE_WORD = 0x8FA30010
 
 
 def menu_index_from_ptr(ptr, base, ring_size=len(MENU_RING)):
