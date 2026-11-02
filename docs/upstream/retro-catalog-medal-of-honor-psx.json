@@ -1,0 +1,64 @@
+{
+  "author_notes": "Native PC port by static recompilation. Supply your own Medal of Honor (Europe) disc (SLES-02470, Redump CUE/BIN); the USA, French and German discs are not supported. No BIOS dump is needed: the release bundles OpenBIOS (MIT). All 24 campaign levels load and run natively in the automated tests and Mission 1 was played through by hand on Windows; Linux and macOS packages are built by CI but untested by hand. Optional mod packages, off by default: mouse look and native 16:9 widescreen. The local split-screen multiplayer needs a second gamepad.",
+  "bios_identity": null,
+  "description": "World War II first-person shooter by DreamWorks Interactive, recompiled natively for PC.",
+  "homepage": "https://github.com/Cr1TiKa7/MOHRecomp",
+  "id": "medal-of-honor-psx",
+  "install_dir_name": "MOHRecomp",
+  "kind": "recomp",
+  "launch": {
+    "windows": "Medal_of_Honor_Recompiled.exe",
+    "linux": "Medal_of_Honor_Recompiled",
+    "macos": "Medal_of_Honor_Recompiled"
+  },
+  "name": "Medal of Honor",
+  "notes": "Prebuilt zips only (no local build block): CI builds the committed generated C. bios_identity is null because the packages ship OpenBIOS; the framework is pinned to upstream RetroPortingToolKit/psxrecomp. Disc digests are the Redump Track 01 values for Medal of Honor (Europe).",
+  "platform": "psx",
+  "release": {
+    "github": "Cr1TiKa7/MOHRecomp",
+    "asset_glob": {
+      "windows": "*windows-x64.zip",
+      "linux": "*linux-x64.zip",
+      "macos": "*macos-*.zip"
+    }
+  },
+  "rom_extensions": [
+    ".cue",
+    ".bin"
+  ],
+  "rom_identity": {
+    "crc32": [
+      "e5070481"
+    ],
+    "md5": [
+      "5e2c8aaba7c3b939093584deb84711c8"
+    ],
+    "sha1": [
+      "8c2e96724118908833d0ca485760dd208238aa87"
+    ],
+    "sha256": [
+      "cf3b37769f0bd83dbf901e460af3c93591db137bbbd90fed9e91bfd2319fbba4"
+    ],
+    "sizes": [
+      741980736
+    ],
+    "track_counts": [
+      1
+    ],
+    "disc_serials": [
+      "SLES-02470"
+    ],
+    "filenames": [
+      "Medal of Honor (Europe).cue",
+      "Medal of Honor (Europe).bin"
+    ],
+    "require_cue": true
+  },
+  "romm": {
+    "platforms": [
+      "ps",
+      "psx",
+      "ps1"
+    ]
+  }
+}

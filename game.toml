@@ -6,7 +6,9 @@ name = "MOH"
 id = "SLES-02470"
 players = 2
 exe = "disc/SLES_024.70"
-disc = "D:\\Downloads\\Medal of Honor (Europe)\\Medal of Honor (Europe).cue"
+# Players pick their own disc in the launcher; developers pass --disc
+# (see docs/DEVELOPMENT.md), so no machine-specific path is committed.
+disc = "disc/Medal of Honor (Europe).cue"
 load_address = "0x80010000"
 entry_pc = "0x8001E004"
 text_size = "0x0002A000"
@@ -43,7 +45,7 @@ mod_instruction_sites = ["0x800801E0", "0x8007FC94", "0x8007FE7C", "0x8005FC1C",
                          "0x80080470"]
 
 [runtime]
-window_title = "MOH Recompiled"
+window_title = "Medal of Honor Recompiled"
 memcard_dir = "saves"
 overlay_cache = true
 

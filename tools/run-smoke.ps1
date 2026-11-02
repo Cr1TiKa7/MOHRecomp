@@ -24,7 +24,7 @@ param(
 . D:\RecompDev\dev-env.ps1
 
 $repo = Split-Path -Parent $PSScriptRoot
-$exe = Join-Path $repo "build-$Build\MOH_Recompiled.exe"
+$exe = Join-Path $repo "build-$Build\Medal_of_Honor_Recompiled.exe"
 if (-not (Test-Path -LiteralPath $exe)) {
     Write-Error "no exe under build-$Build" -ErrorAction Continue
     exit 1

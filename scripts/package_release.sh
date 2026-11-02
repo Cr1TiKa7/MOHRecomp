@@ -41,6 +41,8 @@ else
   EXTRA+=(--ship-without-overlay-cache-because \
     "no disc at package time: the committed static AOT shard is compiled in and overlay_toolchain/ autocompiles the rest on the player's machine")
 fi
+# keybinds.ini: our keyboard + mouse layout (config/keybinds.ini), which the
+# build stages next to the exe when none is there yet.
 # Extra docs shipped at the zip root (DISC.md tells players which dump works).
 for _doc in DISC.md; do
   if [[ -f "${ROOT}/${_doc}" ]]; then
@@ -54,9 +56,10 @@ exec bash "${PACKAGER}" \
   --build-dir "${BUILD_DIR}" \
   --artifact "${ARTIFACT_TAG}" \
   --zip-prefix moh \
-  --exe-name MOH_Recompiled \
-  --display-name "MOH Recompiled" \
+  --exe-name Medal_of_Honor_Recompiled \
+  --display-name "Medal of Honor Recompiled" \
   --recompiler-build "${RECOMPILER_BUILD}" \
   --version-env RELEASE_VERSION \
-  --disc-hint "your legally owned MOH disc" \
+  --disc-hint "your legally owned Medal of Honor (Europe) disc" \
+  --runtime-file keybinds.ini \
   "${EXTRA[@]}"

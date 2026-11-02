@@ -6,7 +6,7 @@
 #include "psxrecomp_codegen_host.h"
 
 static const PsxrecompCodegenHostConfig kCodegenConfig = {
-    .display_name = "MOH",
+    .display_name = "Medal of Honor",
     .project_root_env = "MOHRECOMP_PROJECT_ROOT",
     .build_dir_env = "MOHRECOMP_BUILD_DIR",
     .force_setup_env = "MOHRECOMP_FORCE_SETUP",
@@ -16,7 +16,7 @@ static const PsxrecompCodegenHostConfig kCodegenConfig = {
     .gen_marker_relpath = "generated/SLES_024.70_dispatch.c",
     .build_dir_name = "build-release",
     .cmake_target = "psx-runtime",
-    .exe_basename = "MOH_Recompiled",
+    .exe_basename = "Medal_of_Honor_Recompiled",
     .prepare_note =
         "Uses your legal disc with the local psxrecomp SDK to generate "
         "BIOS + game C, then cmake --build. The product lives under "

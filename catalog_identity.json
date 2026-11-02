@@ -1,16 +1,16 @@
 {
   "format_version": 1,
   "game": {
-    "name": "MOH",
+    "name": "MedalOfHonor",
     "id": "SLES-02470",
     "boot_exe": "SLES_024.70"
   },
   "marketing": {
-    "description": "",
-    "publisher": "",
+    "description": "World War II first-person shooter by DreamWorks Interactive, recompiled natively for PC.",
+    "publisher": "Electronic Arts",
     "year": "1999",
     "region": "PAL",
-    "players": 1
+    "players": 2
   },
   "rom_identity": {
     "cue_name": "Medal of Honor (Europe).cue",

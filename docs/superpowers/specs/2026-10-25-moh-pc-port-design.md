@@ -251,6 +251,7 @@ Alle stehen als `[widescreen.cull]`-Einträge (`bltz_sites`, `bgez_sites`, `scre
 - **PSXRecomp-Lizenz:** PolyForm Noncommercial 1.0.0. Der Port darf nicht verkauft oder kommerziell genutzt werden. Ob das Zeigen auf einem monetarisierten Twitch-Stream als kommerzielle Nutzung zählt, ist eine Grauzone. Das klärst du vor dem ersten Stream damit.
 - **Keine Spieldaten:** Repo und Release enthalten keine Spieldaten, kein BIOS und keine `overlay_captures.json`. Das Release-Zip enthält laut Framework-Checkliste keinen generierten C-Code.
 - **Offen bis M7:** Die Framework-Checkliste sieht vor, `generated/` (aus dem Spielcode erzeugtes C) im Repo zu committen. Im öffentlichen Repo wäre das eine Ableitung des Originalcodes. Vor M7 entscheiden wir, ob `generated/` öffentlich wird oder Nutzer es selbst aus ihrer Disc erzeugen.
+- **Entschieden zu M7 (2026-11-02):** `generated/` wird wie bei Motor Toon Grand Prix committet und veröffentlicht. Nur so baut die Release-CI ohne Disc die fertige `.exe`; Spieler brauchen dann weder Compiler noch SDK.
 
 ## 10. Nicht-Ziele
 
