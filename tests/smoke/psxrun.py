@@ -1,4 +1,4 @@
-"""Shared helpers for driving a running Medal_of_Honor_Recompiled instance (stdlib only).
+"""Shared helpers for driving a running Medal_of_Honor_PAL_Recompiled instance (stdlib only).
 
 Launching, liveness, frame counter, pad input, RAM reads and shutdown, used by
 every smoke test. All remote calls go through psxdbg (one request per TCP

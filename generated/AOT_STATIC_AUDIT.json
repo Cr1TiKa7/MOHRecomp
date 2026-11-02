@@ -1,6 +1,6 @@
 {
   "game_id": "SLES-02470",
-  "recipe_input_sha256": "d1575f202703c0bd430f1231ce45b107facb5a2a325eaed7a2e87b44c0b8fb7d",
+  "recipe_input_sha256": "ac8e7e42bf4169dc14a2b868ab8a3c087ed79a78c273dd3e3a463dd425fd9ff2",
   "recipe_count": 3,
   "all_pairs_valid": true,
   "all_guards_match_known_input_bytes": true,
@@ -215757,7 +215757,7 @@
   "generation_inputs": {
     "schema": "psxrecomp AOT static generation inputs v1",
     "profile_sha256": "d01b2b39320fef03ce2247c01c3de477327589925e3cfe5b0d27ce348764cc8d",
-    "game_toml_sha256": "df0680f7a0f756ad14aab73a2baa9a940ceab1998b5ac4dae99851f9341497be",
+    "game_toml_sha256": "97fedeaab7ae2f5d0bf143f5eda296855d00f17b2b7f67611daae8609ebd0366",
     "disc": {
       "sha256": "cf3b37769f0bd83dbf901e460af3c93591db137bbbd90fed9e91bfd2319fbba4"
     },
@@ -215783,5 +215783,5 @@
     },
     "mod_packages": {}
   },
-  "generation_inputs_sha256": "b81a7666baf6eec98346325b7c585f6d380e16449d3b85e053a1b307e3463a92"
+  "generation_inputs_sha256": "6b2bb946d5a20e5692d54fa9e4cc72d9d364b0d91fb11dfc972cf3d437b08cd0"
 }

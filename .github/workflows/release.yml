@@ -82,7 +82,7 @@ on:
       - 'v*'
 
 concurrency:
-  group: moh-release-${{ github.event_name }}-${{ github.ref }}-${{ github.run_id }}
+  group: moh-pal-release-${{ github.event_name }}-${{ github.ref }}-${{ github.run_id }}
   cancel-in-progress: true
 
 permissions:
@@ -597,7 +597,7 @@ jobs:
           set -euo pipefail
           # Assert the artifact, not the intent: every rule below was once
           # "the packager does that by default" and shipped broken anyway.
-          ZIP=$(ls dist/moh-*-"${{ matrix.artifact }}".zip | head -1)
+          ZIP=$(ls dist/moh-pal-*-"${{ matrix.artifact }}".zip | head -1)
           echo "checking ${ZIP}"
           LIST="$(unzip -Z1 "${ZIP}")"
           # 1. It is a game: the executable, the bundled OpenBIOS, and the
@@ -673,8 +673,8 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           # Artifact name uses the title zip prefix (e.g. bpe, motk).
-          name: moh-${{ matrix.artifact }}
-          path: dist/moh-*-${{ matrix.artifact }}.zip
+          name: moh-pal-${{ matrix.artifact }}
+          path: dist/moh-pal-*-${{ matrix.artifact }}.zip
           if-no-files-found: error
           retention-days: 30
 
@@ -699,7 +699,7 @@ jobs:
         run: |
           set -euo pipefail
           mkdir -p dist
-          find artifacts -type f -name 'moh-*.zip' -exec cp -v {} dist/ \;
+          find artifacts -type f -name 'moh-pal-*.zip' -exec cp -v {} dist/ \;
           ls -la dist/
 
       - name: Ensure release tag exists
@@ -711,7 +711,7 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           if ! git rev-parse -q --verify "refs/tags/${TAG}" >/dev/null; then
-            git tag -a "${TAG}" -m "Medal of Honor Recompiled ${TAG}"
+            git tag -a "${TAG}" -m "Medal of Honor PAL Recompiled ${TAG}"
           fi
           if ! git ls-remote --exit-code --tags origin "refs/tags/${TAG}" >/dev/null 2>&1; then
             git push origin "refs/tags/${TAG}"
@@ -722,10 +722,9 @@ jobs:
         with:
           tag_name: ${{ needs.prepare.outputs.tag }}
           # Quoted: titles may contain ':' (e.g. "Marvel vs. Capcom: …").
-          name: "Medal of Honor Recompiled ${{ needs.prepare.outputs.tag }}"
+          name: "Medal of Honor PAL Recompiled ${{ needs.prepare.outputs.tag }}"
           files: |
-            dist/moh-*.zip
+            dist/moh-pal-*.zip
           generate_release_notes: true
           fail_on_unmatched_files: true
           target_commitish: ${{ github.sha }}
-# Actions registration nudge (2026-11-02T08:55:40 UTC)

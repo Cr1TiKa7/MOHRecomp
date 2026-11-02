@@ -40,7 +40,7 @@ psxrecomp_add_game_runtime(psx-runtime
     # ENABLE_NETPLAY_IF_PRESENT
     # NETPLAY_LOBBY_URL ws://netplay.retcomm.net:8765
     # ENABLE_SETUP_WIZARD
-    WINDOW_TITLE "Medal of Honor Recompiled"
+    WINDOW_TITLE "Medal of Honor PAL Recompiled"
     DEFAULT_GAME_CONFIG_PATH "game.toml"
     # 2: the split-screen mode needs a pad in port 2 (with 1, sio ignores slot 1).
     MAX_PLAYERS 2

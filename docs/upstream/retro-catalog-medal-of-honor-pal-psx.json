@@ -3,16 +3,16 @@
   "bios_identity": null,
   "description": "World War II first-person shooter by DreamWorks Interactive, recompiled natively for PC.",
   "homepage": "https://github.com/Cr1TiKa7/MOHRecomp",
-  "id": "medal-of-honor-psx",
+  "id": "medal-of-honor-pal-psx",
   "install_dir_name": "MOHRecomp",
   "kind": "recomp",
   "launch": {
-    "windows": "Medal_of_Honor_Recompiled.exe",
-    "linux": "Medal_of_Honor_Recompiled",
-    "macos": "Medal_of_Honor_Recompiled"
+    "windows": "Medal_of_Honor_PAL_Recompiled.exe",
+    "linux": "Medal_of_Honor_PAL_Recompiled",
+    "macos": "Medal_of_Honor_PAL_Recompiled"
   },
-  "name": "Medal of Honor",
-  "notes": "Prebuilt zips only (no local build block): CI builds the committed generated C. bios_identity is null because the packages ship OpenBIOS; the framework is pinned to upstream RetroPortingToolKit/psxrecomp. Disc digests are the Redump Track 01 values for Medal of Honor (Europe).",
+  "name": "Medal of Honor (PAL)",
+  "notes": "Prebuilt zips only (no local build block): CI builds the committed generated C. bios_identity is null because the packages ship OpenBIOS; the framework is pinned to upstream RetroPortingToolKit/psxrecomp. Disc digests are the Redump Track 01 values for Medal of Honor (Europe). Named PAL to tell it apart from FractalEngineer/Medal-Of-Honor-PSX-Recomp (USA disc, VR), which also calls itself Medal of Honor Recompiled.",
   "platform": "psx",
   "release": {
     "github": "Cr1TiKa7/MOHRecomp",

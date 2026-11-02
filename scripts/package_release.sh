@@ -9,7 +9,7 @@
 # Usage:
 #   scripts/package_release.sh <build-dir> <artifact-tag> [recompiler-build-dir]
 #
-# Writes: dist/moh-<VERSION>-<artifact-tag>.zip
+# Writes: dist/moh-pal-<VERSION>-<artifact-tag>.zip
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
@@ -55,9 +55,9 @@ exec bash "${PACKAGER}" \
   --root "${ROOT}" \
   --build-dir "${BUILD_DIR}" \
   --artifact "${ARTIFACT_TAG}" \
-  --zip-prefix moh \
-  --exe-name Medal_of_Honor_Recompiled \
-  --display-name "Medal of Honor Recompiled" \
+  --zip-prefix moh-pal \
+  --exe-name Medal_of_Honor_PAL_Recompiled \
+  --display-name "Medal of Honor PAL Recompiled" \
   --recompiler-build "${RECOMPILER_BUILD}" \
   --version-env RELEASE_VERSION \
   --disc-hint "your legally owned Medal of Honor (Europe) disc" \

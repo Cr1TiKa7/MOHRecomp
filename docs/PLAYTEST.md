@@ -1,6 +1,6 @@
 # Durchspiel-Checkliste (M3)
 
-Die automatischen Tests springen in jedes Level und laufen dort eine halbe Minute herum. Ob sich ein Level bis zum Ende spielen lässt, zeigt nur ein echter Durchlauf. Gespielt wird im Release-Build (`build-release\Medal_of_Honor_Recompiled.exe`), in beliebig vielen Sitzungen.
+Die automatischen Tests springen in jedes Level und laufen dort eine halbe Minute herum. Ob sich ein Level bis zum Ende spielen lässt, zeigt nur ein echter Durchlauf. Gespielt wird im Release-Build (`build-release\Medal_of_Honor_PAL_Recompiled.exe`), in beliebig vielen Sitzungen.
 
 ## So trägst du ein
 
@@ -67,7 +67,7 @@ Jedes gefundene Problem wird eine eigene Aufgabe. Es wird erst die Ursache gesuc
 
 ## M4: Maus und Tastatur (Abnahme)
 
-Im Release-Build (`build-release\Medal_of_Honor_Recompiled.exe`). Die neue Tastenbelegung liegt schon neben der `.exe`, die alte als `keybinds.ini.bak-m3`. Hinter jeden Punkt `ok` oder was dir auffällt.
+Im Release-Build (`build-release\Medal_of_Honor_PAL_Recompiled.exe`). Die neue Tastenbelegung liegt schon neben der `.exe`, die alte als `keybinds.ini.bak-m3`. Hinter jeden Punkt `ok` oder was dir auffällt.
 
 1. **Einschalten:** Launcher → Mods → Input → „Mouse Look“ an. ______
 2. **Einfangen:** Ein Klick ins Spiel fängt die Maus ein, dieser Klick schießt nicht. Esc gibt sie frei. Nach Pause oder Zwischensequenz genügt ein Klick. Wie oft musst du neu klicken, stört das? ______
@@ -84,7 +84,7 @@ Im Release-Build (`build-release\Medal_of_Honor_Recompiled.exe`). Die neue Taste
 
 ## M5: Breitbild und Bildqualität (Abnahme)
 
-Im Release-Build (`build-release\Medal_of_Honor_Recompiled.exe`). Breitbild, Auflösung und PGXP schaltest du selbst im Launcher ein. Hinter jeden Punkt `ok` oder was dir auffällt.
+Im Release-Build (`build-release\Medal_of_Honor_PAL_Recompiled.exe`). Breitbild, Auflösung und PGXP schaltest du selbst im Launcher ein. Hinter jeden Punkt `ok` oder was dir auffällt.
 
 1. **Einschalten:** Launcher → Mods → Visual → „Widescreen 16:9“ an. ______
 2. **Nur im Spiel breit:** Im Level füllt das Bild 16:9. Menüs, Briefing, Ladebild, Pause, Missionsauswertung und Videos bleiben 4:3 mit schwarzen Seitenbalken, nichts ist gestreckt oder halb schwarz. Wo stimmt das nicht? ______

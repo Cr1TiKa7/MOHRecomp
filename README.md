@@ -1,4 +1,4 @@
-# Medal of Honor Recompiled
+# Medal of Honor PAL Recompiled
 
 <!-- retcomm-readme-metrics -->
 [![GitHub downloads (all assets, all releases)](https://img.shields.io/github/downloads/cr1tika7/MOHRecomp/total)](https://github.com/cr1tika7/MOHRecomp/releases)
@@ -17,6 +17,11 @@ own disc.
 On top of the original it adds optional mouse look, native 16:9 widescreen and
 internal resolutions up to 4K, all switched off until you turn them on.
 
+"PAL" in the name marks the disc it is built for: the European release. Other
+PS1 ports of this game exist, for example
+[FractalEngineer's VR port](https://github.com/FractalEngineer/Medal-Of-Honor-PSX-Recomp)
+for the USA disc; they are separate projects with their own releases.
+
 | | |
 |---|---|
 | Game | Medal of Honor (Europe) |
@@ -31,7 +36,7 @@ internal resolutions up to 4K, all switched off until you turn them on.
 1. Download the zip for your platform from
    [Releases](https://github.com/cr1tika7/MOHRecomp/releases) and extract it
    anywhere.
-2. Start `Medal_of_Honor_Recompiled.exe`.
+2. Start `Medal_of_Honor_PAL_Recompiled.exe`.
 3. On first start, select the `.cue` of your own **European** disc dump
    (SLES-02470, the Redump set *Medal of Honor (Europe)*). The USA, French and
    German discs have different contents and are not supported. `DISC.md` in the
@@ -164,7 +169,7 @@ python3 psxrecomp/psxrecomp_cli.py rebuild \
 
 Releases: run the *Release builds* workflow on GitHub (or push a `vX.Y.Z`
 tag). CI builds the committed `generated/` C on Linux, Windows and macOS and
-attaches `moh-<version>-<platform>.zip`. Locally (the build must be configured
+attaches `moh-pal-<version>-<platform>.zip`. Locally (the build must be configured
 with `-DPSX_RELEASE_CHANNEL=public`):
 `scripts/package_release.sh build-release windows-x64`.
 

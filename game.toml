@@ -45,7 +45,7 @@ mod_instruction_sites = ["0x800801E0", "0x8007FC94", "0x8007FE7C", "0x8005FC1C",
                          "0x80080470"]
 
 [runtime]
-window_title = "Medal of Honor Recompiled"
+window_title = "Medal of Honor PAL Recompiled"
 memcard_dir = "saves"
 overlay_cache = true
 

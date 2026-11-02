@@ -31,14 +31,14 @@ Ein Ausnahmefall: Der Mod-Medien-Cache der Runtime (`%LOCALAPPDATA%\psxrecomp\im
 # Spiel-C aus der Disc neu erzeugen (deterministisch; danach generated/ committen)
 py -3 psxrecomp\psxrecomp_cli.py generate --config game.toml --project-root . --disc $env:MOH_CUE
 
-# Release (ohne Debug-Server) -> build-release\Medal_of_Honor_Recompiled.exe
+# Release (ohne Debug-Server) -> build-release\Medal_of_Honor_PAL_Recompiled.exe
 py -3 psxrecomp\psxrecomp_cli.py rebuild --config game.toml --project-root . --build-dir build-release --no-pgo --no-toolchain-download
 
-# Entwicklung (Debug-Server auf Port 4370) -> build-dev\Medal_of_Honor_Recompiled.exe
+# Entwicklung (Debug-Server auf Port 4370) -> build-dev\Medal_of_Honor_PAL_Recompiled.exe
 py -3 psxrecomp\psxrecomp_cli.py rebuild --config game.toml --project-root . --build-dir build-dev --no-pgo --no-toolchain-download --cmake-extra=-DPSX_DEBUG_TOOLS=ON
 ```
 
-Der Name der `.exe` folgt dem `WINDOW_TITLE` in `CMakeLists.txt` (seit dem Release 2026-11-02 „Medal of Honor Recompiled“, vorher „MOH Recompiled“). Ältere Build-Ordner enthalten deshalb noch eine `MOH_Recompiled.exe`, die die Tests nicht mehr benutzen.
+Der Name der `.exe` folgt dem `WINDOW_TITLE` in `CMakeLists.txt` (seit dem ersten Release 2026-11-02 „Medal of Honor PAL Recompiled“, vorher „MOH Recompiled“). „PAL“ grenzt den Port von FractalEngineers „Medal of Honor Recompiled“ (USA-Disc, VR) ab, der denselben Namen und dasselbe Zip-Präfix `moh` schon benutzte. Ältere Build-Ordner enthalten noch eine `MOH_Recompiled.exe`, die die Tests nicht mehr benutzen.
 
 ## Tests
 
@@ -277,23 +277,19 @@ Das Mod-Paket liegt unter `mods/preloaded/packages/moh.enhancement.widescreen/` 
 
 ## Veröffentlichen
 
-- **GitHub-Release:** Der Workflow *Release builds* (`.github/workflows/release.yml`) baut das committete `generated/` auf Linux, Windows und macOS und hängt `moh-<Version>-<Plattform>.zip` an. Erzeugt wurde er aus der Vorlage des gepinnten Frameworks:
+- **GitHub-Release:** Der Workflow *Release builds* (`.github/workflows/release.yml`) baut das committete `generated/` auf Linux, Windows und macOS und hängt `moh-pal-<Version>-<Plattform>.zip` an. Erzeugt wurde er aus der Vorlage des gepinnten Frameworks:
 
   ```powershell
-  py -3 psxrecomp\tools\new_project_layout\fill_tokens.py psxrecomp\docs\ci\templates\game-release.yml .github\workflows\release.yml --ci-placeholders --set "ZIP_PREFIX=moh" --set "GAME_TITLE=Medal of Honor Recompiled" --set "WINDOW_TITLE=Medal of Honor Recompiled"
+  py -3 psxrecomp\tools\new_project_layout\fill_tokens.py psxrecomp\docs\ci\templates\game-release.yml .github\workflows\release.yml --ci-placeholders --set "ZIP_PREFIX=moh-pal" --set "GAME_TITLE=Medal of Honor PAL Recompiled" --set "WINDOW_TITLE=Medal of Honor PAL Recompiled"
   ```
 
   Nach einem Framework-Update den Workflow so neu erzeugen, damit er zu den Skripten im Submodul passt.
 - **Inhalt des Zips** (`scripts/package_release.sh`): `.exe`, OpenBIOS, Mod-Pakete, Overlay-Toolchain, dazu `keybinds.ini` (`--runtime-file`; der Build legt `config/keybinds.ini` neben die `.exe`) und `DISC.md` (welcher Dump passt).
-- **Lokal packen** geht nur mit einem Build, der einen Release-Kanal hat. Sonst lehnt der Packer ab:
-
-  ```powershell
-  py -3 psxrecomp\psxrecomp_cli.py rebuild --config game.toml --project-root . --build-dir build-public --no-pgo --no-toolchain-download --cmake-extra=-DPSX_RELEASE_CHANNEL=public
-  bash scripts/package_release.sh build-public windows-x64 build-recompiler
-  ```
+- **Vor einem Release lokal prüfen wie die CI:** `pwsh -File tools/ci-clone-check.ps1 [-Version 0.1.0]`. Das Skript klont den letzten Commit nach `D:\RecompDev\Temp\moh-ci-clone`, läuft durch die Prüfschritte von `release.yml`, baut mit Release-Kanal `public` und packt `dist\moh-pal-<Version>-windows-x64.zip`. Danach das Zip in einen leeren Ordner entpacken und mit `--disc <cue> --no-launcher` starten. Nur Committetes zählt, also vorher committen.
+- **Lokal packen** geht nur mit einem Build, der einen Release-Kanal hat (`--cmake-extra=-DPSX_RELEASE_CHANNEL=public`), sonst lehnt der Packer ab. Die genauen Schritte stehen in `tools/ci-clone-check.ps1`.
 
 - **Nach jeder Änderung an `game.toml`** `generate` laufen lassen, auch wenn sich am Code nichts ändert: `generated/AOT_STATIC_AUDIT.json` hält den SHA-256 von `game.toml` fest, und `psxrecomp/tools/package_title_release.py` lehnt einen veralteten Stand ab.
-- **Retro-Catalog:** Der Eintrag liegt als Entwurf in `docs/upstream/retro-catalog-medal-of-honor-psx.json`. Eingereicht wird über das Formular des Katalogs, Ablauf und Fallstricke stehen in `D:\RecompDev\PS1_RECOMP_NOTES.md` (Abschnitt Retro Launcher).
+- **Retro-Catalog:** Der Eintrag liegt als Entwurf in `docs/upstream/retro-catalog-medal-of-honor-pal-psx.json`. Eingereicht wird über das Formular des Katalogs, Ablauf und Fallstricke stehen in `D:\RecompDev\PS1_RECOMP_NOTES.md` (Abschnitt Retro Launcher).
 
 ## Debug-Port
 
