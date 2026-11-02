@@ -176,7 +176,11 @@ with `-DPSX_RELEASE_CHANNEL=public`):
 ## Framework pins
 
 Submodule gitlinks (`psxrecomp`, `recomp-ui`, nested `recomp-net`) are
-authoritative and point at upstream RetroPortingToolKit commits.
+authoritative. `recomp-ui` points at upstream. `psxrecomp` points at the fork
+[cr1tika7/psxrecomp](https://github.com/cr1tika7/psxrecomp/tree/mod-command-lock-ctor-safe),
+which is upstream `7097d536` plus one fix: plugins can register debug commands
+from their constructors in MinGW builds. Without it the Windows release
+terminated before `main` ([docs/upstream/psxrecomp-mod-command-lock-pr.md](docs/upstream/psxrecomp-mod-command-lock-pr.md)).
 `framework_pins.txt` is an optional scaffold snapshot; release CI logs SHAs
 with `record_pins.sh` but builds whatever the gitlinks resolve to. Bump
 submodules deliberately and regenerate `generated/` afterwards.
